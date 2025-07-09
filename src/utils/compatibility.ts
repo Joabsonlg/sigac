@@ -26,7 +26,7 @@ import {
 
 // Convert between old and new models
 export const getVehicleLegacyId = (vehicle: Vehicle): string => {
-  return vehicle.license_plate;
+  return vehicle.plate;
 };
 
 export const getClientLegacyId = (customer: Customer): string => {
@@ -34,7 +34,7 @@ export const getClientLegacyId = (customer: Customer): string => {
 };
 
 export const findVehicleById = (id: string): Vehicle | undefined => {
-  return vehicles.find(v => v.license_plate === id || v.id === id);
+  return vehicles.find(v => v.plate);
 };
 
 export const findClientById = (id: string): Client | undefined => {
@@ -66,10 +66,9 @@ export const vehicleIdToVehiclePlate = (vehicleId: string): string => {
 export const ensureCompatibilityFields = () => {
   // Add compatibility fields to vehicles
   for (const vehicle of vehicles) {
-    if (!vehicle.id) vehicle.id = vehicle.license_plate;
-    if (!vehicle.licensePlate) vehicle.licensePlate = vehicle.license_plate;
+    if (!vehicle.plate) vehicle.plate = vehicle.plate;
     if (!vehicle.dailyRate) vehicle.dailyRate = 100; // Default value
-    if (!vehicle.imageUrl) vehicle.imageUrl = vehicle.image_url;
+    if (!vehicle.imageUrl) vehicle.imageUrl = vehicle.imageUrl;
   }
   
   // Add compatibility fields to reservations

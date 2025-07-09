@@ -106,7 +106,7 @@ VITE_DEBUG=true
   "model": "Corolla",
   "brand": "Toyota",
   "year": 2023,
-  "license_plate": "ABC-1234",
+  "plate": "ABC-1234",
   "status": "available",
   "image_url": "http://example.com/image.jpg"
 }

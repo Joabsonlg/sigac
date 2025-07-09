@@ -1,146 +1,88 @@
 /**
  * Vehicles Service
- * API methods for vehicle management
+ * API methods for vehicle management using Spring WebFlux backend
  */
 
 import { api } from './api';
-import { Vehicle } from '@/types';
+import {ApiResponse, Vehicle, VehiclePage} from '@/types';
 
 export interface CreateVehicleRequest {
   model: string;
   brand: string;
   year: number;
-  license_plate: string;
-  status: 'available' | 'rented' | 'maintenance';
-  image_url?: string;
+  plate: string;
+  status: VehicleStatus;
+  imageUrl?: string;
+  dailyRate: number;
 }
 
-export interface UpdateVehicleRequest extends Partial<CreateVehicleRequest> {
-  id: string;
+export enum VehicleStatus {
+  DISPONIVEL = 'DISPONIVEL',
+  ALUGADO = 'ALUGADO',
+  MANUTENCAO = 'MANUTENCAO',
+  INDISPONIVEL = 'INDISPONIVEL'
 }
 
-export interface VehiclesListResponse {
-  data: Vehicle[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
+export type UpdateVehicleRequest = Partial<CreateVehicleRequest>
 
 export class VehiclesService {
   /**
-   * Get paginated list of vehicles
+   * Get all vehicles (optionally paginated)
    */
-  static async getVehicles(
-    page: number = 1,
-    limit: number = 10,
-    search?: string,
-    status?: string
-  ): Promise<VehiclesListResponse> {
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: limit.toString(),
-    });
-
-    if (search) params.append('search', search);
-    if (status) params.append('status', status);
-
-    const response = await api.get<VehiclesListResponse>(`/vehicles?${params}`);
-    return response.data;
-  }
-
-  /**
-   * Get vehicle by ID
-   */
-  static async getVehicleById(id: string): Promise<Vehicle> {
-    const response = await api.get<Vehicle>(`/vehicles/${id}`);
-    return response.data;
+  static async getVehicles(page = 0, size = 100): Promise<ApiResponse<VehiclePage>> {
+    const response = await api.get(`/api/vehicles?page=${page}&size=${size}`);
+    return response.data as ApiResponse<VehiclePage>;
   }
 
   /**
    * Get vehicle by license plate
    */
   static async getVehicleByPlate(plate: string): Promise<Vehicle> {
-    const response = await api.get<Vehicle>(`/vehicles/plate/${plate}`);
-    return response.data;
+    const response = await api.get(`/api/vehicles/${plate}`);
+    const data = response.data;
+
+    if (typeof data === 'object' && data !== null && 'plate' in data) {
+      return data as Vehicle;
+    }
+
+    throw new Error('Resposta da API não contém um veículo válido');
   }
 
   /**
    * Create new vehicle
    */
-  static async createVehicle(vehicleData: CreateVehicleRequest): Promise<Vehicle> {
-    const response = await api.post<Vehicle>('/vehicles', vehicleData);
-    return response.data;
+  static async createVehicle(data: CreateVehicleRequest): Promise<Vehicle> {
+    const response = await api.post<Vehicle>('/api/vehicles', data);
+    return response.data as Vehicle;
   }
 
   /**
-   * Update vehicle
+   * Update existing vehicle by plate
    */
-  static async updateVehicle(id: string, vehicleData: Partial<UpdateVehicleRequest>): Promise<Vehicle> {
-    const response = await api.put<Vehicle>(`/vehicles/${id}`, vehicleData);
-    return response.data;
+  static async updateVehicle(plate: string, data: CreateVehicleRequest): Promise<Vehicle> {
+    const response = await api.put(`/api/vehicles/${plate}`, data);
+    return response.data as Vehicle;
+  }
+
+
+  /**
+   * Delete vehicle by plate
+   */
+  static async deleteVehicle(plate: string): Promise<void> {
+    await api.delete(`/api/vehicles/${plate}`);
   }
 
   /**
-   * Delete vehicle
+   * Check if vehicle exists by plate
    */
-  static async deleteVehicle(id: string): Promise<void> {
-    await api.delete(`/vehicles/${id}`);
-  }
+  static async vehicleExists(plate: string): Promise<boolean> {
+    const response = await api.get(`/api/vehicles/${plate}/exists`);
+    const data = response.data;
 
-  /**
-   * Update vehicle status
-   */
-  static async updateVehicleStatus(id: string, status: 'available' | 'rented' | 'maintenance'): Promise<Vehicle> {
-    const response = await api.patch<Vehicle>(`/vehicles/${id}/status`, { status });
-    return response.data;
-  }
+    if (typeof data === 'boolean') {
+      return data;
+    }
 
-  /**
-   * Get available vehicles for date range
-   */
-  static async getAvailableVehicles(startDate: string, endDate: string): Promise<Vehicle[]> {
-    const response = await api.get<Vehicle[]>(`/vehicles/available`, {
-      params: { startDate, endDate }
-    });
-    return response.data;
-  }
-
-  /**
-   * Upload vehicle image
-   */
-  static async uploadVehicleImage(vehicleId: string, imageFile: File): Promise<{ imageUrl: string }> {
-    const formData = new FormData();
-    formData.append('image', imageFile);
-    
-    const response = await api.post<{ imageUrl: string }>(`/vehicles/${vehicleId}/image`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    
-    return response.data;
-  }
-
-  /**
-   * Get vehicle statistics
-   */
-  static async getVehicleStats(): Promise<{
-    total: number;
-    available: number;
-    rented: number;
-    maintenance: number;
-  }> {
-    const response = await api.get<{
-      total: number;
-      available: number;
-      rented: number;
-      maintenance: number;
-    }>('/vehicles/stats');
-    return response.data;
+    throw new Error('Resposta inválida para verificação de existência');
   }
 }
-
-export default VehiclesService;

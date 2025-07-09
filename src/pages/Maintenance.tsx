@@ -146,7 +146,7 @@ const Maintenance: React.FC = () => {
     // Filter by search term
     const vehicle = getVehicleById(maintenance.vehicleId);
     const vehicleInfo = vehicle 
-      ? `${vehicle.brand} ${vehicle.model} ${vehicle.licensePlate}`
+      ? `${vehicle.brand} ${vehicle.model} ${vehicle.plate}`
       : '';
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = (
@@ -192,7 +192,7 @@ const Maintenance: React.FC = () => {
                     <option value="">Selecione um veículo</option>
                     {vehicles.map((vehicle) => (
                       <option key={vehicle.id} value={vehicle.id}>
-                        {vehicle.brand} {vehicle.model} - {vehicle.licensePlate}
+                        {vehicle.brand} {vehicle.model} - {vehicle.plate}
                       </option>
                     ))}
                   </select>
@@ -349,7 +349,7 @@ const Maintenance: React.FC = () => {
                           <div className="font-medium">
                             {vehicle ? `${vehicle.brand} ${vehicle.model}` : 'Veículo não encontrado'}
                           </div>
-                          <div className="text-gray-500 text-xs">{vehicle?.licensePlate}</div>
+                          <div className="text-gray-500 text-xs">{vehicle?.plate}</div>
                         </TableCell>
                         <TableCell>
                           {maintenance.type === 'preventive' ? 'Preventiva' : 'Corretiva'}
@@ -413,7 +413,7 @@ const Maintenance: React.FC = () => {
                       <Car className="h-5 w-5 text-sigac-blue" />
                       <div>
                         <div className="font-medium">Veículo</div>
-                        <div>{vehicle ? `${vehicle.brand} ${vehicle.model} - ${vehicle.licensePlate}` : 'Veículo não encontrado'}</div>
+                        <div>{vehicle ? `${vehicle.brand} ${vehicle.model} - ${vehicle.plate}` : 'Veículo não encontrado'}</div>
                       </div>
                     </div>
                     

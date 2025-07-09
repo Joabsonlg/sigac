@@ -93,20 +93,26 @@ export type Payment = {
   reservation_id: number; // Reference to Reservation
 };
 
-export type Vehicle = {
-  license_plate: string;
-  model: string;
+export interface Vehicle {
+  plate: string;
   brand: string;
+  model: string;
   year: number;
-  status: string;
-  image_url: string;
-  
-  // Legacy compatibility properties
-  id?: string;        // For compatibility with existing code
-  licensePlate?: string;  // For compatibility with existing code
-  dailyRate?: number;     // For compatibility with existing code
-  imageUrl?: string;      // For compatibility with existing code
-};
+  status: 'DISPONIVEL' | 'ALUGADO' | 'MANUTENCAO' | 'INDISPONIVEL';
+  imageUrl: string;
+  dailyRate?: number;
+}
+
+export interface VehiclePage {
+  content: Vehicle[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
 
 export type Maintenance = {
   id: number;

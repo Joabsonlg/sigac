@@ -73,14 +73,14 @@ const getDailyRateForVehicle = (plate: string): number => {
 // Convert Vehicle to LegacyVehicle
 export const vehicleToLegacy = (vehicle: Vehicle): LegacyVehicle => {
   return {
-    id: vehicle.license_plate,
+    id: vehicle.plate,
     model: vehicle.model,
     brand: vehicle.brand,
     year: vehicle.year,
-    licensePlate: vehicle.license_plate,
+    licensePlate: vehicle.plate,
     status: vehicle.status as 'available' | 'rented' | 'maintenance',
-    dailyRate: getDailyRateForVehicle(vehicle.license_plate),
-    imageUrl: vehicle.image_url
+    dailyRate: getDailyRateForVehicle(vehicle.plate),
+    imageUrl: vehicle.imageUrl
   };
 };
 

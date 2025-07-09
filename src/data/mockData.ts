@@ -4,36 +4,36 @@ import { Vehicle, Customer, Employee, Reservation, Maintenance, Payment, Promoti
 // Mock Vehicles
 export const vehicles: Vehicle[] = [
   {
-    license_plate: 'ABC-1234',
+    plate: 'ABC-1234',
     model: 'Corolla',
     brand: 'Toyota',
     year: 2023,
-    status: 'available',
-    image_url: '/cars/corolla.jpg',
+    status: 'DISPONIVEL',
+    imageUrl: '/cars/corolla.jpg',
   },
   {
-    license_plate: 'DEF-5678',
+    plate: 'DEF-5678',
     model: 'Renegade',
     brand: 'Jeep',
     year: 2022,
-    status: 'rented',
-    image_url: '/cars/renegade.jpg',
+    status: 'ALUGADO',
+    imageUrl: '/cars/renegade.jpg',
   },
   {
-    license_plate: 'GHI-9012',
+    plate: 'GHI-9012',
     model: 'HB20',
     brand: 'Hyundai',
     year: 2021,
-    status: 'maintenance',
-    image_url: '/cars/hb20.jpg',
+    status: 'MANUTENCAO',
+    imageUrl: '/cars/hb20.jpg',
   },
   {
-    license_plate: 'JKL-3456',
+    plate: 'JKL-3456',
     model: 'Toro',
     brand: 'Fiat',
     year: 2022,
-    status: 'available',
-    image_url: '/cars/toro.jpg',
+    status: 'DISPONIVEL',
+    imageUrl: '/cars/toro.jpg',
   },
 ];
 
@@ -383,7 +383,7 @@ export const getCustomerByCpf = (cpf: string): Customer | undefined => {
 
 // Helper function to get vehicle by license plate
 export const getVehicleByPlate = (plate: string): Vehicle | undefined => {
-  return vehicles.find(vehicle => vehicle.license_plate === plate);
+  return vehicles.find(vehicle => vehicle.plate === plate);
 };
 
 // Helper function to get employee by CPF

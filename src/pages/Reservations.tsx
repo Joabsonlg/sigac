@@ -355,7 +355,7 @@ const Reservations: React.FC = () => {
                     <option value="">Selecione um veículo</option>
                     {getAvailableVehicles().map(vehicle => (
                       <option key={vehicle.id} value={vehicle.id}>
-                        {vehicle.brand} {vehicle.model} - {vehicle.licensePlate || vehicle.license_plate}
+                        {vehicle.brand} {vehicle.model} - {vehicle.plate || vehicle.plate}
                       </option>
                     ))}
                   </select>
@@ -641,7 +641,7 @@ const Reservations: React.FC = () => {
   function getAvailableVehicles(): Vehicle[] {
     return vehicles.filter(vehicle => 
       vehicle.status === 'available' || 
-      (editingReservation && (vehicle.id === editingReservation.vehicleId || vehicle.license_plate === editingReservation.vehicle_plate))
+      (editingReservation && (vehicle.id === editingReservation.vehicleId || vehicle.plate === editingReservation.vehicle_plate))
     );
   }
 };

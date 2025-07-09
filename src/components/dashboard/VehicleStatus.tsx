@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 // Define valid statuses to avoid type errors
 type ValidStatus = 'available' | 'rented' | 'maintenance';
 
-const VehicleStatusItem: React.FC<{ brand: string; model: string; license_plate: string; status: string }> = ({ brand, model, license_plate, status }) => {
+const VehicleStatusItem: React.FC<{ brand: string; model: string; plate: string; status: string }> = ({ brand, model, plate, status }) => {
   const getStatusStyle = () => {
     switch (status) {
       case 'available':
@@ -51,7 +51,7 @@ const VehicleStatusItem: React.FC<{ brand: string; model: string; license_plate:
 
       <div className="flex-1">
         <h4 className="font-medium text-gray-900">{brand} {model}</h4>
-        <p className="text-sm text-gray-500">{license_plate}</p>
+        <p className="text-sm text-gray-500">{plate}</p>
       </div>
 
       <div className={cn('font-medium', getStatusStyle())}>
@@ -76,10 +76,10 @@ const VehicleStatus: React.FC = () => {
       <div className="space-y-0 -mx-4">
         {vehicles.map((vehicle) => (
           <VehicleStatusItem
-            key={vehicle.license_plate}
+            key={vehicle.plate}
             brand={vehicle.brand}
             model={vehicle.model}
-            license_plate={vehicle.license_plate}
+            plate={vehicle.plate}
             status={vehicle.status as ValidStatus}
           />
         ))}
