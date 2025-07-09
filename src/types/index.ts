@@ -100,9 +100,9 @@ export type Reservation = {
 // New reservation type following API structure
 export type ReservationData = {
   id: number;
-  startDate: string;
-  endDate: string;
-  reservationDate: string;
+  startDate: number[]; // API returns date as array [year, month, day, hour, minute, second]
+  endDate: number[]; // API returns date as array [year, month, day, hour, minute, second]
+  reservationDate: number[]; // API returns date as array [year, month, day, hour, minute, second]
   status: 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   promotionCode?: number;
   clientUserCpf: string;

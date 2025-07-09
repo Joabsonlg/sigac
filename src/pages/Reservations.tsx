@@ -191,9 +191,26 @@ const Reservations: React.FC = () => {
 
   const handleEdit = (reservation: ReservationData) => {
     setEditingReservation(reservation);
+    
+    // Convert date array to datetime-local format
+    const convertArrayToDatetimeLocal = (dateArray: number[]) => {
+      if (!dateArray || !Array.isArray(dateArray) || dateArray.length < 3) {
+        return '';
+      }
+      try {
+        const [year, month, day, hour = 0, minute = 0] = dateArray;
+        // Create date object (month is 1-based in array but 0-based in Date constructor)
+        const date = new Date(year, month - 1, day, hour, minute);
+        if (isNaN(date.getTime())) return '';
+        return date.toISOString().slice(0, 16);
+      } catch {
+        return '';
+      }
+    };
+    
     setFormData({
-      startDate: reservation.startDate,
-      endDate: reservation.endDate,
+      startDate: convertArrayToDatetimeLocal(reservation.startDate),
+      endDate: convertArrayToDatetimeLocal(reservation.endDate),
       clientUserCpf: reservation.clientUserCpf,
       employeeUserCpf: reservation.employeeUserCpf,
       vehiclePlate: reservation.vehiclePlate,
@@ -262,12 +279,46 @@ const Reservations: React.FC = () => {
     setShowForm(false);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+  const formatDate = (dateArray: number[]) => {
+    if (!dateArray || !Array.isArray(dateArray) || dateArray.length < 3) {
+      return 'Data inválida';
+    }
+    
+    try {
+      // dateArray format: [year, month, day, hour, minute, second]
+      // Note: month is 1-based in the array but Date constructor expects 0-based
+      const [year, month, day, hour = 0, minute = 0, second = 0] = dateArray;
+      const date = new Date(year, month - 1, day, hour, minute, second);
+      
+      if (isNaN(date.getTime())) {
+        return 'Data inválida';
+      }
+      
+      return date.toLocaleDateString('pt-BR');
+    } catch (error) {
+      return 'Data inválida';
+    }
   };
 
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('pt-BR');
+  const formatDateTime = (dateArray: number[]) => {
+    if (!dateArray || !Array.isArray(dateArray) || dateArray.length < 3) {
+      return 'Data inválida';
+    }
+    
+    try {
+      // dateArray format: [year, month, day, hour, minute, second]
+      // Note: month is 1-based in the array but Date constructor expects 0-based
+      const [year, month, day, hour = 0, minute = 0, second = 0] = dateArray;
+      const date = new Date(year, month - 1, day, hour, minute, second);
+      
+      if (isNaN(date.getTime())) {
+        return 'Data inválida';
+      }
+      
+      return date.toLocaleString('pt-BR');
+    } catch (error) {
+      return 'Data inválida';
+    }
   };
 
   if (loading) {
