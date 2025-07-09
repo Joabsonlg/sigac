@@ -56,11 +56,24 @@ export type PaginatedResponse<T> = {
 export type EmployeeRole = 'ADMIN' | 'ATENDENTE' | 'GERENTE';
 
 export type Promotion = {
-  code: string;
-  discount_percentage: number;
-  start_date: string;
-  end_date: string;
-  status: string;
+  code: number;
+  discountPercentage: number;
+  status: 'SCHEDULED' | 'ACTIVE' | 'INACTIVE';
+  startDate: number[]; // API returns date as array [year, month, day, hour, minute, second]
+  endDate: number[]; // API returns date as array [year, month, day, hour, minute, second]
+};
+
+export type PromotionCreateData = {
+  discountPercentage: number;
+  startDate: string;
+  endDate: string;
+};
+
+export type PromotionUpdateData = {
+  discountPercentage?: number;
+  status?: 'SCHEDULED' | 'ACTIVE' | 'INACTIVE';
+  startDate?: string;
+  endDate?: string;
 };
 
 export type Reservation = {
@@ -82,6 +95,23 @@ export type Reservation = {
   totalAmount?: number;
   discount?: number;
   promoCode?: string;
+};
+
+// New reservation type following API structure
+export type ReservationData = {
+  id: number;
+  startDate: string;
+  endDate: string;
+  reservationDate: string;
+  status: 'PENDING' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  promotionCode?: number;
+  clientUserCpf: string;
+  clientName: string;
+  employeeUserCpf: string;
+  employeeName: string;
+  vehiclePlate: string;
+  vehicleModel: string;
+  vehicleBrand: string;
 };
 
 export type Payment = {

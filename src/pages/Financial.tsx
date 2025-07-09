@@ -1,193 +1,346 @@
-import React, { useState } from 'react';
-import Layout from '@/components/layout/Layout';
-import { reservations, formatCurrency, clients, vehicles, formatDate } from '@/data/mockData';
+import React, { useState, useEffect } from 'react';
+import { Promotion, PromotionCreateData, PromotionUpdateData } from '@/types';
+import { PromotionsService } from '@/services/promotionsService';
 import { 
   Table, TableHeader, TableRow, TableHead, 
   TableBody, TableCell 
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  Card, CardHeader, CardTitle, CardDescription, 
-  CardContent, CardFooter 
-} from '@/components/ui/card';
-import {
-  FileText, DollarSign, Plus, Edit, Trash2, 
-  Check, X, Search, Filter, Percent
-} from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-
-type PromotionCode = {
-  id: string;
-  code: string;
-  discountType: 'percentage' | 'fixed';
-  discountValue: number;
-  startDate: string;
-  endDate: string;
-  isActive: boolean;
-  description: string;
-  applicableVehicleIds?: string[];
-};
-
-// Mock promotion codes
-const initialPromotionCodes: PromotionCode[] = [
-  {
-    id: 'promo1',
-    code: 'VERAO2023',
-    discountType: 'percentage',
-    discountValue: 10,
-    startDate: '2023-12-01',
-    endDate: '2024-03-31',
-    isActive: true,
-    description: 'Promoção de verão - 10% de desconto'
-  },
-  {
-    id: 'promo2',
-    code: 'BEMVINDO50',
-    discountType: 'fixed',
-    discountValue: 50,
-    startDate: '2023-06-01',
-    endDate: '2023-12-31',
-    isActive: true,
-    description: 'Boas-vindas - R$50 de desconto'
-  },
-  {
-    id: 'promo3',
-    code: 'FIDELIDADE',
-    discountType: 'percentage',
-    discountValue: 15,
-    startDate: '2023-01-01',
-    endDate: '2023-12-31',
-    isActive: true,
-    description: 'Cliente fidelidade - 15% de desconto'
-  }
-];
+import { Check, Edit, Loader2, Percent, Plus, Search, Trash2, X, Play, Pause } from 'lucide-react';
 
 const Financial: React.FC = () => {
-  const [promotions, setPromotions] = useState<PromotionCode[]>(initialPromotionCodes);
+  const [promotionsList, setPromotionsList] = useState<Promotion[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editingPromotion, setEditingPromotion] = useState<PromotionCode | null>(null);
-  const [activeTab, setActiveTab] = useState("promos");
+  const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ACTIVE' | 'INACTIVE' | 'SCHEDULED' | 'all'>('all');
+  const [submitting, setSubmitting] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const { toast } = useToast();
 
   // Form state for new/edit promotion
-  const [formData, setFormData] = useState<Omit<PromotionCode, 'id'>>({
-    code: '',
-    discountType: 'percentage',
-    discountValue: 0,
+  const [formData, setFormData] = useState<PromotionCreateData>({
+    discountPercentage: 0,
     startDate: '',
     endDate: '',
-    isActive: true,
-    description: '',
   });
+
+  // Load promotions on component mount
+  useEffect(() => {
+    loadPromotions();
+  }, []);
+
+  // Reload promotions when filters change (with debounce for search)
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      loadPromotions();
+    }, searchTerm ? 500 : 0); // 500ms debounce for search, immediate for other filters
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchTerm, statusFilter]);
+
+  const loadPromotions = async () => {
+    try {
+      // Set different loading states
+      if (searchTerm || statusFilter !== 'all') {
+        setSearching(true);
+      } else {
+        setLoading(true);
+      }
+      
+      // Use the service method with filters
+      const response = await PromotionsService.getPromotions(
+        0, // page
+        100, // size - load more items to avoid pagination issues for now
+        statusFilter !== 'all' ? statusFilter : undefined
+      );
+      
+      // Extract promotions from API response structure
+      let promotions = [];
+      
+      if (Array.isArray(response)) {
+        promotions = response;
+      } else if (response && typeof response === 'object') {
+        if (response.content && Array.isArray(response.content)) {
+          promotions = response.content;
+        } else if (response.data && Array.isArray(response.data)) {
+          promotions = response.data;
+        } else if (response.data && response.data.content && Array.isArray(response.data.content)) {
+          promotions = response.data.content;
+        }
+      }
+      
+      setPromotionsList(Array.isArray(promotions) ? promotions : []);
+    } catch (error) {
+      console.error('Error loading promotions:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as promoções.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+      setSearching(false);
+    }
+  };
 
   const resetForm = () => {
     setFormData({
-      code: '',
-      discountType: 'percentage',
-      discountValue: 0,
+      discountPercentage: 0,
       startDate: '',
       endDate: '',
-      isActive: true,
-      description: '',
-      applicableVehicleIds: []
     });
     setEditingPromotion(null);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({
-        ...prev,
-        [name]: checked
-      }));
-      return;
-    }
-    
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'discountValue' ? Number(value) : value
+      [name]: name === 'discountPercentage' ? Number(value) : value
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingPromotion) {
-      // Update existing promotion
-      const updatedPromotions = promotions.map(promo => 
-        promo.id === editingPromotion.id 
-          ? { ...formData, id: editingPromotion.id } 
-          : promo
-      );
-      setPromotions(updatedPromotions);
-    } else {
-      // Add new promotion
-      const newPromotion = {
-        ...formData,
-        id: `promo${Date.now()}`
-      };
-      setPromotions([...promotions, newPromotion]);
+    // Validate required fields
+    if (!formData.startDate || !formData.endDate || formData.discountPercentage <= 0) {
+      toast({
+        title: "Erro",
+        description: "Por favor, preencha todos os campos obrigatórios.",
+        variant: "destructive"
+      });
+      return;
     }
+
+    // Validate date range
+    const startDate = new Date(formData.startDate);
+    const endDate = new Date(formData.endDate);
     
-    setShowForm(false);
-    resetForm();
+    if (startDate >= endDate) {
+      toast({
+        title: "Erro",
+        description: "A data de término deve ser posterior à data de início.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate discount percentage
+    if (formData.discountPercentage < 1 || formData.discountPercentage > 100) {
+      toast({
+        title: "Erro",
+        description: "O percentual de desconto deve estar entre 1% e 100%.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      
+      if (editingPromotion) {
+        // Update existing promotion
+        const updateData: PromotionUpdateData = {
+          discountPercentage: formData.discountPercentage,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+        };
+        
+        await PromotionsService.updatePromotion(editingPromotion.code, updateData);
+        
+        toast({
+          title: "Sucesso",
+          description: "Promoção atualizada com sucesso!",
+          variant: "default"
+        });
+      } else {
+        // Create new promotion
+        await PromotionsService.createPromotion(formData);
+        
+        toast({
+          title: "Sucesso",
+          description: "Promoção criada com sucesso!",
+          variant: "default"
+        });
+      }
+      
+      // Reset form and reload data
+      resetForm();
+      setShowForm(false);
+      loadPromotions();
+      
+    } catch (error: any) {
+      console.error('Error saving promotion:', error);
+      toast({
+        title: "Erro",
+        description: error.response?.data?.message || "Erro ao salvar promoção.",
+        variant: "destructive"
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleEdit = (promotion: PromotionCode) => {
+  const handleEdit = (promotion: Promotion) => {
     setEditingPromotion(promotion);
+    
+    // Convert date array to datetime-local format
+    const convertArrayToDatetimeLocal = (dateArray: number[]) => {
+      if (!dateArray || !Array.isArray(dateArray) || dateArray.length < 3) {
+        return '';
+      }
+      try {
+        const [year, month, day, hour = 0, minute = 0] = dateArray;
+        // Create date object (month is 1-based in array but 0-based in Date constructor)
+        const date = new Date(year, month - 1, day, hour, minute);
+        if (isNaN(date.getTime())) return '';
+        return date.toISOString().slice(0, 16);
+      } catch {
+        return '';
+      }
+    };
+    
     setFormData({
-      code: promotion.code,
-      discountType: promotion.discountType,
-      discountValue: promotion.discountValue,
-      startDate: promotion.startDate,
-      endDate: promotion.endDate,
-      isActive: promotion.isActive,
-      description: promotion.description,
-      applicableVehicleIds: promotion.applicableVehicleIds || []
+      discountPercentage: promotion.discountPercentage,
+      startDate: convertArrayToDatetimeLocal(promotion.startDate),
+      endDate: convertArrayToDatetimeLocal(promotion.endDate),
     });
     setShowForm(true);
   };
 
-  const handleDelete = (id: string) => {
-    setPromotions(promotions.filter(promo => promo.id !== id));
+  const handleDelete = async (code: number) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta promoção?')) {
+      return;
+    }
+
+    try {
+      await PromotionsService.deletePromotion(code);
+      
+      toast({
+        title: "Sucesso",
+        description: "Promoção excluída com sucesso!",
+        variant: "default"
+      });
+      
+      loadPromotions();
+    } catch (error: any) {
+      console.error('Error deleting promotion:', error);
+      toast({
+        title: "Erro",
+        description: error.response?.data?.message || "Erro ao excluir promoção.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const togglePromotionStatus = (id: string) => {
-    setPromotions(promotions.map(promo => 
-      promo.id === id ? { ...promo, isActive: !promo.isActive } : promo
-    ));
+  const handleStatusChange = async (promotion: Promotion, newStatus: 'ACTIVE' | 'INACTIVE') => {
+    try {
+      if (newStatus === 'ACTIVE') {
+        await PromotionsService.activatePromotion(promotion.code);
+      } else {
+        await PromotionsService.deactivatePromotion(promotion.code);
+      }
+      
+      toast({
+        title: "Sucesso",
+        description: "Status da promoção atualizado com sucesso!",
+        variant: "default"
+      });
+      
+      loadPromotions();
+    } catch (error: any) {
+      console.error('Error updating promotion status:', error);
+      toast({
+        title: "Erro",
+        description: error.response?.data?.message || "Erro ao atualizar status.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const getClientName = (clientId: string) => {
-    const client = clients.find(c => c.id === clientId);
-    return client ? client.name : 'Cliente não encontrado';
+  const handleCancelForm = () => {
+    resetForm();
+    setShowForm(false);
   };
 
-  const getVehicleName = (vehicleId: string) => {
-    const vehicle = vehicles.find(v => v.id === vehicleId);
-    return vehicle ? `${vehicle.brand} ${vehicle.model}` : 'Veículo não encontrado';
+  const formatDate = (dateArray: number[]) => {
+    if (!dateArray || !Array.isArray(dateArray) || dateArray.length < 3) {
+      return 'Data inválida';
+    }
+    
+    try {
+      // dateArray format: [year, month, day, hour, minute, second]
+      // Note: month is 1-based in the array but Date constructor expects 0-based
+      const [year, month, day, hour = 0, minute = 0, second = 0] = dateArray;
+      const date = new Date(year, month - 1, day, hour, minute, second);
+      
+      if (isNaN(date.getTime())) {
+        return 'Data inválida';
+      }
+      
+      return date.toLocaleDateString('pt-BR');
+    } catch (error) {
+      return 'Data inválida';
+    }
   };
 
-  // Filter promotions based on search term
-  const filteredPromotions = promotions.filter(promo => 
-    promo.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    promo.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case 'ACTIVE': return 'bg-green-100 text-green-800 border-green-200';
+      case 'INACTIVE': return 'bg-red-100 text-red-800 border-red-200';
+      case 'SCHEDULED': return 'bg-blue-100 text-blue-800 border-blue-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
 
-  // Filter reservations with discounts
-  const reservationsWithDiscounts = reservations.filter(res => 
-    (res.discount && res.discount > 0) || res.promoCode
-  );
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'ACTIVE': return 'Ativo';
+      case 'INACTIVE': return 'Inativo';
+      case 'SCHEDULED': return 'Agendado';
+      default: return 'Desconhecido';
+    }
+  };
+
+  // Filter promotions based on search term (local filtering since API doesn't have search)
+  const filteredPromotions = promotionsList.filter(promo => {
+    if (searchTerm === '') return true;
+    
+    const searchLower = searchTerm.toLowerCase();
+    const startDateFormatted = formatDate(promo.startDate).toLowerCase();
+    const endDateFormatted = formatDate(promo.endDate).toLowerCase();
+    
+    return (
+      promo.code.toString().includes(searchTerm) ||
+      promo.discountPercentage.toString().includes(searchTerm) ||
+      startDateFormatted.includes(searchLower) ||
+      endDateFormatted.includes(searchLower) ||
+      getStatusLabel(promo.status).toLowerCase().includes(searchLower)
+    );
+  });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -195,16 +348,18 @@ const Financial: React.FC = () => {
         <h1 className="text-2xl font-bold">Módulo Financeiro</h1>
       </div>
 
-      <Tabs defaultValue="promos" value={activeTab} onValueChange={setActiveTab}>
+      <Tabs defaultValue="promos">
         <TabsList className="mb-4">
           <TabsTrigger value="promos">Promoções e Descontos</TabsTrigger>
-          <TabsTrigger value="transactions">Transações com Desconto</TabsTrigger>
         </TabsList>
         
         <TabsContent value="promos">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-medium">Códigos Promocionais</h2>
-            <Button onClick={() => { resetForm(); setShowForm(!showForm); }}>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold">Gerenciamento de Promoções</h2>
+            <Button 
+              onClick={() => { resetForm(); setShowForm(!showForm); }}
+              disabled={loading}
+            >
               <Plus className="mr-2 h-4 w-4" /> Nova Promoção
             </Button>
           </div>
@@ -213,124 +368,75 @@ const Financial: React.FC = () => {
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle>{editingPromotion ? 'Editar Promoção' : 'Nova Promoção'}</CardTitle>
-                <CardDescription>
-                  Preencha os dados para {editingPromotion ? 'atualizar a' : 'criar uma nova'} promoção
-                </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-1" htmlFor="code">
-                        Código Promocional
-                      </label>
-                      <Input
-                        id="code"
-                        name="code"
-                        value={formData.code}
-                        onChange={handleInputChange}
-                        required
-                        placeholder="Ex: VERAO2024"
-                      />
+                      <Label htmlFor="discountPercentage">Percentual de Desconto (%)</Label>
+                      <div className="relative">
+                        <Input
+                          id="discountPercentage"
+                          name="discountPercentage"
+                          type="number"
+                          min="1"
+                          max="100"
+                          step="1"
+                          value={formData.discountPercentage}
+                          onChange={handleInputChange}
+                          required
+                          placeholder="Ex: 15"
+                          className="pr-8"
+                        />
+                        <Percent className="absolute right-2 top-2.5 h-4 w-4 text-gray-500" />
+                      </div>
                     </div>
+                    <div></div>
                     <div>
-                      <label className="block text-sm font-medium mb-1" htmlFor="description">
-                        Descrição
-                      </label>
-                      <Input
-                        id="description"
-                        name="description"
-                        value={formData.description}
-                        onChange={handleInputChange}
-                        required
-                        placeholder="Descrição da promoção"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1" htmlFor="discountType">
-                        Tipo de Desconto
-                      </label>
-                      <select
-                        id="discountType"
-                        name="discountType"
-                        value={formData.discountType}
-                        onChange={handleInputChange}
-                        className="w-full p-2 border rounded-md"
-                        required
-                      >
-                        <option value="percentage">Percentual (%)</option>
-                        <option value="fixed">Valor Fixo (R$)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1" htmlFor="discountValue">
-                        {formData.discountType === 'percentage' ? 'Percentual (%)' : 'Valor (R$)'}
-                      </label>
-                      <Input
-                        id="discountValue"
-                        name="discountValue"
-                        type="number"
-                        min="0"
-                        step={formData.discountType === 'percentage' ? '1' : '0.01'}
-                        max={formData.discountType === 'percentage' ? '100' : undefined}
-                        value={formData.discountValue}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1" htmlFor="startDate">
-                        Data de Início
-                      </label>
+                      <Label htmlFor="startDate">Data de Início</Label>
                       <Input
                         id="startDate"
                         name="startDate"
-                        type="date"
+                        type="datetime-local"
                         value={formData.startDate}
                         onChange={handleInputChange}
+                        min={new Date().toISOString().slice(0, 16)}
                         required
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1" htmlFor="endDate">
-                        Data de Término
-                      </label>
+                      <Label htmlFor="endDate">Data de Término</Label>
                       <Input
                         id="endDate"
                         name="endDate"
-                        type="date"
+                        type="datetime-local"
                         value={formData.endDate}
                         onChange={handleInputChange}
+                        min={formData.startDate || new Date().toISOString().slice(0, 16)}
                         required
                       />
                     </div>
-                    <div className="flex items-center">
-                      <Input
-                        id="isActive"
-                        name="isActive"
-                        type="checkbox"
-                        checked={formData.isActive}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 mr-2"
-                      />
-                      <label className="text-sm font-medium" htmlFor="isActive">
-                        Ativo
-                      </label>
-                    </div>
                   </div>
-                  <div className="flex justify-end gap-2 mt-4">
+                  
+                  <div className="flex justify-end gap-2 pt-4">
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => {
-                        setShowForm(false);
-                        resetForm();
-                      }}
+                      onClick={handleCancelForm}
                     >
-                      <X className="mr-2 h-4 w-4" /> Cancelar
+                      <X className="mr-2 h-4 w-4" />
+                      Cancelar
                     </Button>
-                    <Button type="submit">
-                      <Check className="mr-2 h-4 w-4" /> {editingPromotion ? 'Atualizar' : 'Salvar'}
+                    <Button 
+                      type="submit" 
+                      disabled={submitting}
+                    >
+                      {submitting ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="mr-2 h-4 w-4" />
+                      )}
+                      {editingPromotion ? 'Atualizar' : 'Salvar'}
                     </Button>
                   </div>
                 </form>
@@ -342,17 +448,30 @@ const Financial: React.FC = () => {
             <CardHeader>
               <div className="flex flex-col md:flex-row justify-between gap-4">
                 <div className="flex items-center">
-                  <Percent className="mr-2 text-sigac-blue" />
-                  <CardTitle>Promoções Ativas</CardTitle>
+                  <Percent className="mr-2 text-blue-600" />
+                  <CardTitle>Promoções</CardTitle>
                 </div>
-                <div className="relative w-full md:w-64">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                  <Input
-                    placeholder="Buscar promoções..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
-                  />
+                <div className="flex gap-2">
+                  <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="ACTIVE">Ativo</SelectItem>
+                      <SelectItem value="INACTIVE">Inativo</SelectItem>
+                      <SelectItem value="SCHEDULED">Agendado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                    <Input
+                      placeholder="Buscar por código, desconto, data ou status..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9 w-64"
+                    />
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -362,7 +481,6 @@ const Financial: React.FC = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Código</TableHead>
-                      <TableHead>Descrição</TableHead>
                       <TableHead>Desconto</TableHead>
                       <TableHead>Período</TableHead>
                       <TableHead>Status</TableHead>
@@ -370,48 +488,68 @@ const Financial: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredPromotions.length > 0 ? (
+                    {searching ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                          <p>Buscando promoções...</p>
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredPromotions.length > 0 ? (
                       filteredPromotions.map((promotion) => (
-                        <TableRow key={promotion.id}>
+                        <TableRow key={promotion.code}>
                           <TableCell>
-                            <div className="font-medium">{promotion.code}</div>
-                          </TableCell>
-                          <TableCell>{promotion.description}</TableCell>
-                          <TableCell>
-                            {promotion.discountType === 'percentage' 
-                              ? `${promotion.discountValue}%` 
-                              : formatCurrency(promotion.discountValue)}
+                            <div className="font-medium">#{promotion.code}</div>
                           </TableCell>
                           <TableCell>
-                            {formatDate(promotion.startDate)} - {formatDate(promotion.endDate)}
+                            <span className="font-medium">{promotion.discountPercentage}%</span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm space-y-1">
+                              <div className="font-medium text-gray-700">
+                                {formatDate(promotion.startDate)}
+                              </div>
+                              <div className="text-gray-500">
+                                até {formatDate(promotion.endDate)}
+                              </div>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <Badge 
-                              className={promotion.isActive 
-                                ? "bg-green-500" 
-                                : "bg-gray-400"
-                              }
+                              variant="outline"
+                              className={getStatusBadgeColor(promotion.status)}
                             >
-                              {promotion.isActive ? 'Ativo' : 'Inativo'}
+                              {getStatusLabel(promotion.status)}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className={promotion.isActive 
-                                  ? "text-yellow-600 border-yellow-200 hover:bg-yellow-50" 
-                                  : "text-green-600 border-green-200 hover:bg-green-50"
-                                }
-                                onClick={() => togglePromotionStatus(promotion.id)}
-                              >
-                                {promotion.isActive ? 'Desativar' : 'Ativar'}
-                              </Button>
+                              {promotion.status === 'ACTIVE' ? (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="text-yellow-600 border-yellow-200 hover:bg-yellow-50"
+                                  onClick={() => handleStatusChange(promotion, 'INACTIVE')}
+                                  title="Desativar promoção"
+                                >
+                                  <Pause className="h-4 w-4" />
+                                </Button>
+                              ) : (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="text-green-600 border-green-200 hover:bg-green-50"
+                                  onClick={() => handleStatusChange(promotion, 'ACTIVE')}
+                                  title="Ativar promoção"
+                                >
+                                  <Play className="h-4 w-4" />
+                                </Button>
+                              )}
                               <Button 
                                 variant="outline" 
                                 size="sm" 
                                 onClick={() => handleEdit(promotion)}
+                                title="Editar promoção"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -419,7 +557,8 @@ const Financial: React.FC = () => {
                                 variant="outline" 
                                 size="sm" 
                                 className="text-red-500 border-red-200 hover:bg-red-50"
-                                onClick={() => handleDelete(promotion.id)}
+                                onClick={() => handleDelete(promotion.code)}
+                                title="Excluir promoção"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -429,8 +568,20 @@ const Financial: React.FC = () => {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-4 text-gray-500">
-                          Nenhuma promoção encontrada
+                        <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                          <div className="flex flex-col items-center">
+                            <Percent className="h-8 w-8 text-gray-400 mb-2" />
+                            <p className="text-sm">
+                              {searchTerm || statusFilter !== 'all' 
+                                ? 'Nenhuma promoção encontrada com os filtros aplicados' 
+                                : 'Nenhuma promoção cadastrada'}
+                            </p>
+                            {(searchTerm || statusFilter !== 'all') && (
+                              <p className="text-xs text-gray-400 mt-1">
+                                Tente ajustar os filtros ou criar uma nova promoção
+                              </p>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     )}
@@ -439,113 +590,6 @@ const Financial: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-        
-        <TabsContent value="transactions">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center">
-                <DollarSign className="mr-2 text-sigac-blue" />
-                <CardTitle>Reservas com Descontos</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Veículo</TableHead>
-                      <TableHead>Período</TableHead>
-                      <TableHead>Código</TableHead>
-                      <TableHead>Desconto</TableHead>
-                      <TableHead>Valor Final</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {reservationsWithDiscounts.length > 0 ? (
-                      reservationsWithDiscounts.map((reservation) => (
-                        <TableRow key={reservation.id}>
-                          <TableCell>
-                            <div className="font-medium">
-                              {getClientName(reservation.clientId)}
-                            </div>
-                          </TableCell>
-                          <TableCell>{getVehicleName(reservation.vehicleId)}</TableCell>
-                          <TableCell>
-                            {formatDate(reservation.startDate)} - {formatDate(reservation.endDate)}
-                          </TableCell>
-                          <TableCell>
-                            {reservation.promoCode || '-'}
-                          </TableCell>
-                          <TableCell>
-                            {reservation.discount 
-                              ? formatCurrency(reservation.discount)
-                              : '-'
-                            }
-                          </TableCell>
-                          <TableCell>
-                            {formatCurrency(reservation.totalAmount)}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-4 text-gray-500">
-                          Nenhuma reserva com desconto encontrada
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <div className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Resumo Financeiro</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-500">Total de Descontos</p>
-                    <p className="text-xl font-bold text-red-600">
-                      {formatCurrency(
-                        reservationsWithDiscounts.reduce(
-                          (acc, res) => acc + (res.discount || 0), 
-                          0
-                        )
-                      )}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-500">Valor Bruto</p>
-                    <p className="text-xl font-bold">
-                      {formatCurrency(
-                        reservationsWithDiscounts.reduce(
-                          (acc, res) => acc + res.totalAmount + (res.discount || 0), 
-                          0
-                        )
-                      )}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-500">Valor Líquido</p>
-                    <p className="text-xl font-bold text-green-600">
-                      {formatCurrency(
-                        reservationsWithDiscounts.reduce(
-                          (acc, res) => acc + res.totalAmount, 
-                          0
-                        )
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </TabsContent>
       </Tabs>
     </div>

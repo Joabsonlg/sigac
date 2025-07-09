@@ -1,308 +1,291 @@
-import React, { useState } from 'react';
-import { Reservation, Client, Vehicle } from '@/types';
-import { reservations, clients, vehicles, formatCurrency, formatDate } from '@/data/mockData';
+import React, { useState, useEffect } from 'react';
+import { ReservationData } from '@/types';
+import ReservationsService, { 
+  CreateReservationRequest, 
+  UpdateReservationRequest, 
+  ReservationStatus 
+} from '@/services/reservationsService';
+import useSelectWithFilter from '@/hooks/useSelectWithFilter';
 import { 
   Table, TableHeader, TableRow, TableHead, 
   TableBody, TableCell 
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { 
-  Card, CardHeader, CardTitle, CardDescription, 
-  CardContent, CardFooter 
-} from '@/components/ui/card';
-import { 
-  Calendar, Plus, Edit, Trash2, Check, X, Search, 
-  ChevronLeft, ChevronRight, CalendarCheck
+  Calendar, Plus, Edit, Trash2, Check, X, Search, Loader2, CalendarCheck
 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationEllipsis,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import FilterableSelect from '@/components/ui/filterable-select';
 
 const Reservations: React.FC = () => {
-  const [reservationsList, setReservationsList] = useState<Reservation[]>(reservations);
+  const [reservationsList, setReservationsList] = useState<ReservationData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
+  const [editingReservation, setEditingReservation] = useState<ReservationData | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  
-  const itemsPerPage = 5;
+  const [statusFilter, setStatusFilter] = useState<ReservationStatus | 'all'>('all');
+  const [submitting, setSubmitting] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const { toast } = useToast();
 
-  // New reservation form state with both legacy and new properties
-  const [formData, setFormData] = useState<Omit<Reservation, "id">>({
-    reservation_date: new Date().toISOString().split('T')[0],
-    start_date: '',
-    end_date: '',
-    status: 'pending',
-    amount: 0,
-    customer_cpf: '',
-    vehicle_plate: '',
-    
-    // Legacy compatibility properties
-    clientId: '',
-    vehicleId: '',
+  // Hook for select options
+  const { 
+    clientOptions, 
+    employeeOptions, 
+    vehicleOptions,
+    loadingClients, 
+    loadingEmployees,
+    loadingVehicles 
+  } = useSelectWithFilter();
+
+  // New reservation form state
+  const [formData, setFormData] = useState<CreateReservationRequest>({
     startDate: '',
     endDate: '',
-    totalAmount: 0,
-    discount: 0,
-    promoCode: ''
+    clientUserCpf: '',
+    employeeUserCpf: '',
+    vehiclePlate: '',
+    promotionCode: undefined
   });
+
+  // Load reservations on component mount
+  useEffect(() => {
+    loadReservations();
+  }, []);
+
+  // Reload reservations when filters change (with debounce for search)
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      loadReservations();
+    }, searchTerm ? 500 : 0); // 500ms debounce for search, immediate for other filters
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchTerm, statusFilter]);
+
+  const loadReservations = async () => {
+    try {
+      // Set different loading states
+      if (searchTerm || statusFilter !== 'all') {
+        setSearching(true);
+      } else {
+        setLoading(true);
+      }
+      
+      // Use the service method with filters
+      const response = await ReservationsService.getReservations(
+        0, // page
+        100, // size - load more items to avoid pagination issues for now
+        statusFilter !== 'all' ? statusFilter : undefined,
+        searchTerm || undefined
+      );
+      
+      // Extract reservations from API response structure
+      const reservations = response.data?.content || response.data || [];
+      setReservationsList(Array.isArray(reservations) ? reservations : []);
+    } catch (error) {
+      console.error('Error loading reservations:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as reservas.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+      setSearching(false);
+    }
+  };
 
   const resetForm = () => {
     setFormData({
-      reservation_date: new Date().toISOString().split('T')[0],
-      start_date: '',
-      end_date: '',
-      status: 'pending',
-      amount: 0,
-      customer_cpf: '',
-      vehicle_plate: '',
-      
-      // Legacy compatibility properties
-      clientId: '',
-      vehicleId: '',
       startDate: '',
       endDate: '',
-      totalAmount: 0,
-      discount: 0,
-      promoCode: ''
+      clientUserCpf: '',
+      employeeUserCpf: '',
+      vehiclePlate: '',
+      promotionCode: undefined
     });
     setEditingReservation(null);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    
-    if (name === 'vehicleId' && value) {
-      const selectedVehicle = vehicles.find(v => v.id === value);
-      if (selectedVehicle && formData.startDate && formData.endDate) {
-        const start = new Date(formData.startDate);
-        const end = new Date(formData.endDate);
-        const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24));
-        const dailyRate = selectedVehicle.dailyRate || 100;
-        const totalAmount = dailyRate * (days > 0 ? days : 1);
-        
-        setFormData(prev => ({
-          ...prev,
-          vehicleId: value,
-          vehicle_plate: value, // Also update the new model field
-          totalAmount: totalAmount - (prev.discount || 0),
-          amount: totalAmount - (prev.discount || 0)
-        }));
-        return;
-      }
-    }
-    
-    if ((name === 'startDate' || name === 'endDate') && formData.vehicleId) {
-      const selectedVehicle = vehicles.find(v => v.id === formData.vehicleId);
-      const start = new Date(name === 'startDate' ? value : formData.startDate);
-      const end = new Date(name === 'endDate' ? value : formData.endDate);
-      
-      if (selectedVehicle && !isNaN(start.getTime()) && !isNaN(end.getTime())) {
-        const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24));
-        const dailyRate = selectedVehicle.dailyRate || 100;
-        const totalAmount = dailyRate * (days > 0 ? days : 1);
-        
-        setFormData(prev => {
-          const updatedData = {
-            ...prev,
-            [name]: value,
-            // Update corresponding new model field
-            ...(name === 'startDate' ? { start_date: value } : {}),
-            ...(name === 'endDate' ? { end_date: value } : {}),
-            totalAmount: totalAmount - (prev.discount || 0),
-            amount: totalAmount - (prev.discount || 0)
-          };
-          return updatedData;
-        });
-        return;
-      }
-    }
-    
-    if (name === 'clientId' && value) {
-      setFormData(prev => ({
-        ...prev,
-        clientId: value,
-        customer_cpf: value // Also update the new model field
-      }));
-      return;
-    }
-    
-    if (name === 'discount') {
-      const discountValue = Number(value) || 0;
-      const currentTotal = formData.totalAmount + (formData.discount || 0);
-      
-      setFormData(prev => ({
-        ...prev,
-        discount: discountValue,
-        totalAmount: currentTotal - discountValue,
-        amount: currentTotal - discountValue
-      }));
-      return;
-    }
-    
-    if (name === 'promoCode') {
-      setFormData(prev => ({
-        ...prev,
-        promoCode: value,
-        promotion_code: value
-      }));
-      return;
-    }
-    
-    // For all other fields, update normally, mapping between legacy and new properties
-    setFormData(prev => {
-      const updates: any = {
-        ...prev,
-        [name]: name === 'totalAmount' || name === 'discount' ? Number(value) : value,
-      };
-      
-      // Map legacy to new model fields
-      if (name === 'status') updates.status = value;
-      
-      return updates;
-    });
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'promotionCode' ? (value ? Number(value) : undefined) : value
+    }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Ensure all fields are set correctly
-    const completeFormData = {
-      ...formData,
-      // Ensure new model fields are set from legacy fields if needed
-      customer_cpf: formData.customer_cpf || formData.clientId,
-      vehicle_plate: formData.vehicle_plate || formData.vehicleId,
-      start_date: formData.start_date || formData.startDate,
-      end_date: formData.end_date || formData.endDate,
-      amount: formData.amount || formData.totalAmount,
-      promotion_code: formData.promotion_code || formData.promoCode,
-      
-      // Ensure legacy fields are set from new model fields if needed
-      clientId: formData.clientId || formData.customer_cpf,
-      vehicleId: formData.vehicleId || formData.vehicle_plate,
-      startDate: formData.startDate || formData.start_date,
-      endDate: formData.endDate || formData.end_date,
-      totalAmount: formData.totalAmount || formData.amount,
-      promoCode: formData.promoCode || formData.promotion_code,
-    };
-    
-    if (editingReservation) {
-      // Update existing reservation
-      const updatedReservations = reservationsList.map(reservation => 
-        reservation.id === editingReservation.id 
-          ? { ...completeFormData, id: editingReservation.id } 
-          : reservation
-      );
-      setReservationsList(updatedReservations);
-    } else {
-      // Add new reservation with String id
-      const newId = `r${Date.now()}`;
-      const newReservation = {
-        ...completeFormData,
-        id: newId,
-      } as Reservation;
-      setReservationsList([...reservationsList, newReservation]);
+    // Validate required fields
+    if (!formData.startDate || !formData.endDate || !formData.clientUserCpf || 
+        !formData.employeeUserCpf || !formData.vehiclePlate) {
+      toast({
+        title: "Erro",
+        description: "Por favor, preencha todos os campos obrigatórios.",
+        variant: "destructive"
+      });
+      return;
     }
-    
-    setShowForm(false);
-    resetForm();
+
+    try {
+      setSubmitting(true);
+      
+      if (editingReservation) {
+        // Update existing reservation
+        const updateData: UpdateReservationRequest = {
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          employeeUserCpf: formData.employeeUserCpf,
+          vehiclePlate: formData.vehiclePlate,
+          promotionCode: formData.promotionCode
+        };
+        
+        await ReservationsService.updateReservation(editingReservation.id, updateData);
+        
+        toast({
+          title: "Sucesso",
+          description: "Reserva atualizada com sucesso!",
+          variant: "default"
+        });
+      } else {
+        // Create new reservation
+        await ReservationsService.createReservation(formData);
+        
+        toast({
+          title: "Sucesso",
+          description: "Reserva criada com sucesso!",
+          variant: "default"
+        });
+      }
+      
+      // Reset form and reload data
+      resetForm();
+      setShowForm(false);
+      loadReservations();
+      
+    } catch (error: any) {
+      console.error('Error saving reservation:', error);
+      toast({
+        title: "Erro",
+        description: error.response?.data?.message || "Erro ao salvar reserva.",
+        variant: "destructive"
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleEdit = (reservation: Reservation) => {
+  const handleEdit = (reservation: ReservationData) => {
     setEditingReservation(reservation);
     setFormData({
-      reservation_date: reservation.reservation_date,
-      start_date: reservation.start_date,
-      end_date: reservation.end_date,
-      status: reservation.status,
-      amount: reservation.amount,
-      customer_cpf: reservation.customer_cpf,
-      vehicle_plate: reservation.vehicle_plate,
-      promotion_code: reservation.promotion_code,
-      
-      // Legacy compatibility fields
-      vehicleId: reservation.vehicleId || reservation.vehicle_plate,
-      clientId: reservation.clientId || reservation.customer_cpf,
-      startDate: reservation.startDate || reservation.start_date,
-      endDate: reservation.endDate || reservation.end_date,
-      totalAmount: reservation.totalAmount || reservation.amount,
-      discount: reservation.discount || 0,
-      promoCode: reservation.promoCode || reservation.promotion_code || ''
+      startDate: reservation.startDate,
+      endDate: reservation.endDate,
+      clientUserCpf: reservation.clientUserCpf,
+      employeeUserCpf: reservation.employeeUserCpf,
+      vehiclePlate: reservation.vehiclePlate,
+      promotionCode: reservation.promotionCode
     });
     setShowForm(true);
   };
 
-  const handleDelete = (id: string | number) => {
-    setReservationsList(reservationsList.filter(reservation => reservation.id !== id));
-  };
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta reserva?')) {
+      return;
+    }
 
-  const filteredReservations = reservationsList
-    .filter(reservation => {
-      // Status filter
-      if (statusFilter !== 'all' && reservation.status !== statusFilter) {
-        return false;
-      }
+    try {
+      await ReservationsService.deleteReservation(id);
       
-      // Search filter
-      const searchLower = searchTerm.toLowerCase();
-      const client = clients.find(c => c.id === (reservation.clientId || reservation.customer_cpf));
-      const vehicle = vehicles.find(v => v.id === (reservation.vehicleId || reservation.vehicle_plate));
-      const reservationId = typeof reservation.id === 'number' ? 
-        reservation.id.toString().toLowerCase() : 
-        reservation.id.toLowerCase();
+      toast({
+        title: "Sucesso",
+        description: "Reserva excluída com sucesso!",
+        variant: "default"
+      });
       
-      return (
-        client?.name.toLowerCase().includes(searchLower) ||
-        vehicle?.brand.toLowerCase().includes(searchLower) ||
-        vehicle?.model.toLowerCase().includes(searchLower) ||
-        reservationId.includes(searchLower)
-      );
-    });
-
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredReservations.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredReservations.length / itemsPerPage);
-
-  const getStatusBadge = (status: Reservation['status']) => {
-    switch (status) {
-      case 'pending':
-        return <Badge className="bg-yellow-500">Pendente</Badge>;
-      case 'confirmed':
-        return <Badge className="bg-green-500">Confirmada</Badge>;
-      case 'cancelled':
-        return <Badge className="bg-red-500">Cancelada</Badge>;
-      case 'completed':
-        return <Badge className="bg-blue-500">Concluída</Badge>;
-      default:
-        return <Badge>{status}</Badge>;
+      loadReservations();
+    } catch (error: any) {
+      console.error('Error deleting reservation:', error);
+      toast({
+        title: "Erro",
+        description: error.response?.data?.message || "Erro ao excluir reserva.",
+        variant: "destructive"
+      });
     }
   };
 
-  const getClientName = (clientId: string) => {
-    const client = clients.find(c => c.id === clientId);
-    return client ? client.name : 'Cliente não encontrado';
+  const handleStatusChange = async (reservation: ReservationData, newStatus: ReservationStatus) => {
+    if (!ReservationsService.canUpdateStatus(reservation.status, newStatus)) {
+      toast({
+        title: "Erro",
+        description: "Transição de status não permitida.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await ReservationsService.updateReservationStatus(reservation.id, newStatus);
+      
+      toast({
+        title: "Sucesso",
+        description: "Status da reserva atualizado com sucesso!",
+        variant: "default"
+      });
+      
+      loadReservations();
+    } catch (error: any) {
+      console.error('Error updating reservation status:', error);
+      toast({
+        title: "Erro",
+        description: error.response?.data?.message || "Erro ao atualizar status.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const getVehicleName = (vehicleId: string) => {
-    const vehicle = vehicles.find(v => v.id === vehicleId);
-    return vehicle ? `${vehicle.brand} ${vehicle.model}` : 'Veículo não encontrado';
+  const handleCancelForm = () => {
+    resetForm();
+    setShowForm(false);
   };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleString('pt-BR');
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Gerenciamento de Reservas</h1>
-        <Button onClick={() => { resetForm(); setShowForm(!showForm); }}>
+        <Button 
+          onClick={() => { resetForm(); setShowForm(!showForm); }}
+          disabled={loading}
+        >
           <Plus className="mr-2 h-4 w-4" /> Nova Reserva
         </Button>
       </div>
@@ -310,155 +293,99 @@ const Reservations: React.FC = () => {
       {showForm && (
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>
-              {editingReservation ? 'Editar Reserva' : 'Nova Reserva'}
-            </CardTitle>
-            <CardDescription>
-              Preencha os dados para {editingReservation ? 'atualizar a' : 'criar uma nova'} reserva
-            </CardDescription>
+            <CardTitle>{editingReservation ? 'Editar Reserva' : 'Nova Reserva'}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1" htmlFor="clientId">
-                    Cliente
-                  </label>
-                  <select
-                    id="clientId"
-                    name="clientId"
-                    value={formData.clientId || ''}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border rounded-md"
-                    required
-                  >
-                    <option value="">Selecione um cliente</option>
-                    {clients.map(client => (
-                      <option key={client.id} value={client.id}>
-                        {client.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1" htmlFor="vehicleId">
-                    Veículo
-                  </label>
-                  <select
-                    id="vehicleId"
-                    name="vehicleId"
-                    value={formData.vehicleId || ''}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border rounded-md"
-                    required
-                  >
-                    <option value="">Selecione um veículo</option>
-                    {getAvailableVehicles().map(vehicle => (
-                      <option key={vehicle.id} value={vehicle.id}>
-                        {vehicle.brand} {vehicle.model} - {vehicle.plate || vehicle.plate}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1" htmlFor="startDate">
-                    Data de Início
-                  </label>
+                  <Label htmlFor="startDate">Data de Início</Label>
                   <Input
                     id="startDate"
                     name="startDate"
-                    type="date"
-                    value={formData.startDate || ''}
+                    type="datetime-local"
+                    value={formData.startDate}
                     onChange={handleInputChange}
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1" htmlFor="endDate">
-                    Data de Término
-                  </label>
+                  <Label htmlFor="endDate">Data de Fim</Label>
                   <Input
                     id="endDate"
                     name="endDate"
-                    type="date"
-                    value={formData.endDate || ''}
+                    type="datetime-local"
+                    value={formData.endDate}
                     onChange={handleInputChange}
                     required
                   />
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium mb-1" htmlFor="status">
-                    Status
-                  </label>
-                  <select
-                    id="status"
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border rounded-md"
-                    required
-                  >
-                    <option value="pending">Pendente</option>
-                    <option value="confirmed">Confirmada</option>
-                    <option value="cancelled">Cancelada</option>
-                    <option value="completed">Concluída</option>
-                  </select>
+                  <Label htmlFor="clientUserCpf">Cliente</Label>
+                  <FilterableSelect
+                    options={clientOptions}
+                    value={formData.clientUserCpf}
+                    onChange={(value) => handleSelectChange('clientUserCpf', value)}
+                    placeholder="Selecione um cliente..."
+                    loading={loadingClients}
+                    disabled={!!editingReservation}
+                    emptyMessage="Nenhum cliente encontrado."
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1" htmlFor="discount">
-                    Desconto (R$)
-                  </label>
+                  <Label htmlFor="employeeUserCpf">Funcionário</Label>
+                  <FilterableSelect
+                    options={employeeOptions}
+                    value={formData.employeeUserCpf}
+                    onChange={(value) => handleSelectChange('employeeUserCpf', value)}
+                    placeholder="Selecione um funcionário..."
+                    loading={loadingEmployees}
+                    emptyMessage="Nenhum funcionário encontrado."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="vehiclePlate">Veículo</Label>
+                  <FilterableSelect
+                    options={vehicleOptions}
+                    value={formData.vehiclePlate}
+                    onChange={(value) => handleSelectChange('vehiclePlate', value)}
+                    placeholder="Selecione um veículo..."
+                    loading={loadingVehicles}
+                    emptyMessage="Nenhum veículo disponível."
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="promotionCode">Código de Promoção</Label>
                   <Input
-                    id="discount"
-                    name="discount"
+                    id="promotionCode"
+                    name="promotionCode"
                     type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.discount || 0}
+                    value={formData.promotionCode || ''}
                     onChange={handleInputChange}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1" htmlFor="promoCode">
-                    Código Promocional
-                  </label>
-                  <Input
-                    id="promoCode"
-                    name="promoCode"
-                    value={formData.promoCode || ''}
-                    onChange={handleInputChange}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1" htmlFor="totalAmount">
-                    Valor Total (R$)
-                  </label>
-                  <Input
-                    id="totalAmount"
-                    name="totalAmount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.totalAmount || 0}
-                    onChange={handleInputChange}
-                    required
+                    placeholder="Opcional"
                   />
                 </div>
               </div>
-              <div className="flex justify-end gap-2">
+
+              <div className="flex justify-end space-x-2">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => {
-                    setShowForm(false);
-                    resetForm();
-                  }}
+                  onClick={handleCancelForm}
+                  disabled={submitting}
                 >
                   <X className="mr-2 h-4 w-4" /> Cancelar
                 </Button>
-                <Button type="submit">
-                  <Check className="mr-2 h-4 w-4" /> {editingReservation ? 'Atualizar' : 'Salvar'}
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="mr-2 h-4 w-4" />
+                  )}
+                  {submitting 
+                    ? (editingReservation ? 'Atualizando...' : 'Criando...')
+                    : (editingReservation ? 'Atualizar' : 'Salvar')
+                  }
                 </Button>
               </div>
             </form>
@@ -471,179 +398,142 @@ const Reservations: React.FC = () => {
           <div className="flex flex-col md:flex-row justify-between gap-4">
             <div className="flex items-center">
               <CalendarCheck className="mr-2 text-sigac-blue" />
-              <CardTitle>Reservas</CardTitle>
+              <CardTitle>Lista de Reservas</CardTitle>
             </div>
-            <div className="flex flex-col md:flex-row gap-2">
-              <div className="w-full md:w-40">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full p-2 border rounded-md"
-                >
-                  <option value="all">Todos os status</option>
-                  <option value="pending">Pendentes</option>
-                  <option value="confirmed">Confirmadas</option>
-                  <option value="cancelled">Canceladas</option>
-                  <option value="completed">Concluídas</option>
-                </select>
-              </div>
-              <div className="relative w-full md:w-64">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <div className="flex gap-2 w-full md:w-auto">
+              <div className="relative flex-1 md:w-64">
+                {searching ? (
+                  <Loader2 className="absolute left-2.5 top-2.5 h-4 w-4 animate-spin text-gray-500" />
+                ) : (
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                )}
                 <Input
                   placeholder="Buscar reservas..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9"
+                  disabled={loading}
                 />
               </div>
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as ReservationStatus | 'all')}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filtrar por status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Status</SelectItem>
+                  <SelectItem value="PENDING">Pendente</SelectItem>
+                  <SelectItem value="CONFIRMED">Confirmada</SelectItem>
+                  <SelectItem value="IN_PROGRESS">Em Andamento</SelectItem>
+                  <SelectItem value="COMPLETED">Finalizada</SelectItem>
+                  <SelectItem value="CANCELLED">Cancelada</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Veículo</TableHead>
-                  <TableHead>Período</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {currentItems.length > 0 ? (
-                  currentItems.map((reservation) => (
-                    <TableRow key={reservation.id}>
-                      <TableCell>
-                        <div className="font-medium">
-                          {getClientName(reservation.clientId || reservation.customer_cpf)}
-                        </div>
-                      </TableCell>
-                      <TableCell>{getVehicleName(reservation.vehicleId || reservation.vehicle_plate)}</TableCell>
-                      <TableCell>
-                        {formatDate(reservation.startDate || reservation.start_date)} - {formatDate(reservation.endDate || reservation.end_date)}
-                      </TableCell>
-                      <TableCell>
-                        {formatCurrency(reservation.totalAmount || reservation.amount)}
-                        {reservation.discount ? (
-                          <span className="text-xs text-green-600 block">
-                            Desc: {formatCurrency(reservation.discount)}
-                          </span>
-                        ) : null}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(reservation.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleEdit(reservation)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-red-500 border-red-200 hover:bg-red-50"
-                            onClick={() => handleDelete(reservation.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+          {loading ? (
+            <div className="flex justify-center items-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              <span>Carregando reservas...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Veículo</TableHead>
+                    <TableHead>Funcionário</TableHead>
+                    <TableHead>Data Início</TableHead>
+                    <TableHead>Data Fim</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Promoção</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {reservationsList.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-gray-500">
+                        Nenhuma reserva encontrada.
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-4 text-gray-500">
-                      Nenhuma reserva encontrada
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <div className="text-sm text-gray-500">
-            Mostrando {Math.min(filteredReservations.length, indexOfFirstItem + 1)} 
-            - {Math.min(indexOfLastItem, filteredReservations.length)} 
-            de {filteredReservations.length} reservas
-          </div>
-          
-          {filteredReservations.length > itemsPerPage && (
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious 
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
-                  />
-                </PaginationItem>
-                
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum: number;
-                  
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-                  
-                  return (
-                    <PaginationItem key={pageNum}>
-                      <PaginationLink 
-                        onClick={() => setCurrentPage(pageNum)}
-                        isActive={pageNum === currentPage}
-                      >
-                        {pageNum}
-                      </PaginationLink>
-                    </PaginationItem>
-                  );
-                })}
-                
-                {totalPages > 5 && currentPage < totalPages - 2 && (
-                  <>
-                    <PaginationItem>
-                      <PaginationEllipsis />
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink 
-                        onClick={() => setCurrentPage(totalPages)}
-                        isActive={totalPages === currentPage}
-                      >
-                        {totalPages}
-                      </PaginationLink>
-                    </PaginationItem>
-                  </>
-                )}
-                
-                <PaginationItem>
-                  <PaginationNext 
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
+                  ) : (
+                    reservationsList.map((reservation) => (
+                      <TableRow key={reservation.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{reservation.clientName}</div>
+                            <div className="text-sm text-gray-500">{reservation.clientUserCpf}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{reservation.vehicleBrand} {reservation.vehicleModel}</div>
+                            <div className="text-sm text-gray-500">{reservation.vehiclePlate}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{reservation.employeeName}</div>
+                            <div className="text-sm text-gray-500">{reservation.employeeUserCpf}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatDateTime(reservation.startDate)}</TableCell>
+                        <TableCell>{formatDateTime(reservation.endDate)}</TableCell>
+                        <TableCell>
+                          <Select 
+                            value={reservation.status} 
+                            onValueChange={(value) => handleStatusChange(reservation, value as ReservationStatus)}
+                          >
+                            <SelectTrigger className="w-[130px]">
+                              <Badge className={ReservationsService.getStatusColor(reservation.status)}>
+                                {ReservationsService.getStatusText(reservation.status)}
+                              </Badge>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="PENDING">Pendente</SelectItem>
+                              <SelectItem value="CONFIRMED">Confirmada</SelectItem>
+                              <SelectItem value="IN_PROGRESS">Em Andamento</SelectItem>
+                              <SelectItem value="COMPLETED">Finalizada</SelectItem>
+                              <SelectItem value="CANCELLED">Cancelada</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          {reservation.promotionCode || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEdit(reservation)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDelete(reservation.id)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
-        </CardFooter>
+        </CardContent>
       </Card>
     </div>
   );
-  
-  function getAvailableVehicles(): Vehicle[] {
-    return vehicles.filter(vehicle => 
-      vehicle.status === 'available' || 
-      (editingReservation && (vehicle.id === editingReservation.vehicleId || vehicle.plate === editingReservation.vehicle_plate))
-    );
-  }
 };
 
-export default Reservations;
+export default Reservations; 
