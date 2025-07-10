@@ -20,6 +20,7 @@ const Header: React.FC = () => {
     
     if (path === "/") title = "Dashboard";
     else if (path === "/veiculos") title = "Veículos";
+    else if (path === "/diarias") title = "Diarias";
     else if (path === "/reservas") title = "Reservas";
     else if (path === "/clientes") title = "Clientes";
     else if (path === "/usuarios") title = "Usuários";

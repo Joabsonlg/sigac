@@ -41,25 +41,25 @@ export const vehicles: Vehicle[] = [
 export const dailyRates: DailyRate[] = [
   {
     id: 1,
-    datetime: '2023-06-01T00:00:00Z',
+    dateTime: '2023-06-01T00:00:00Z',
     amount: 150,
     vehicle_plate: 'ABC-1234'
   },
   {
     id: 2,
-    datetime: '2023-06-01T00:00:00Z',
+    dateTime: '2023-06-01T00:00:00Z',
     amount: 180,
     vehicle_plate: 'DEF-5678'
   },
   {
     id: 3,
-    datetime: '2023-06-01T00:00:00Z',
+    dateTime: '2023-06-01T00:00:00Z',
     amount: 120,
     vehicle_plate: 'GHI-9012'
   },
   {
     id: 4,
-    datetime: '2023-06-01T00:00:00Z',
+    dateTime: '2023-06-01T00:00:00Z',
     amount: 200,
     vehicle_plate: 'JKL-3456'
   }

@@ -25,6 +25,7 @@ import ResetPassword from "./pages/auth/ResetPassword";
 
 // Auth context
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import DailyRate from "@/pages/DailyRate.tsx";
 
 const queryClient = new QueryClient();
 
@@ -61,6 +62,7 @@ const AppRoutes = () => {
         }>
           <Route index element={<Dashboard />} />
           <Route path="/veiculos" element={<Vehicles />} />
+          <Route path="/diarias" element={<DailyRate />} />
           <Route path="/reservas" element={<Reservations />} />
           <Route path="/clientes" element={<Clients />} />
           <Route path="/manutencao" element={<Maintenance />} />

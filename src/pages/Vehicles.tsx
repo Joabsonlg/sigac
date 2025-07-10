@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import {Vehicle} from '@/types';
+import React, {useEffect, useState} from 'react';
+import {DailyRate, Vehicle} from '@/types';
 import {
     Table, TableHeader, TableRow, TableHead,
     TableBody, TableCell
@@ -8,11 +8,13 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Card, CardHeader, CardTitle, CardContent} from '@/components/ui/card';
 import {
-    Car, Plus, Edit, Trash2, Check, X, Search
+    Car, Plus, Edit, Trash2, Check, X, Search,
+    Clock, CheckCircle
 } from 'lucide-react';
 import {Badge} from '@/components/ui/badge';
 import {CreateVehicleRequest, VehiclesService, VehicleStatus} from '@/services/vehiclesService';
 import {toast} from "sonner";
+import {DailyRatesService} from "@/services/dailyRatesService.ts";
 
 const Vehicles: React.FC = () => {
     const [vehiclesList, setVehiclesList] = useState<Vehicle[]>([]);
@@ -20,6 +22,10 @@ const Vehicles: React.FC = () => {
     const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
+    const [dailyRatesModalOpen, setDailyRatesModalOpen] = useState(false);
+    const [dailyRates, setDailyRates] = useState<DailyRate[]>([]);
+    const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+
 
     useEffect(() => {
         const fetchVehicles = async () => {
@@ -55,6 +61,18 @@ const Vehicles: React.FC = () => {
             dailyRate: 0,
         });
         setEditingVehicle(null);
+    };
+
+    const openDailyRateHistory = async (vehicle: Vehicle) => {
+        try {
+            const response = await DailyRatesService.getDailyRatesByVehiclePlate(vehicle.plate);
+            setDailyRates(response.data);
+            setSelectedVehicle(vehicle);
+            setDailyRatesModalOpen(true);
+        } catch (err) {
+            toast.error('Erro ao buscar histórico de diárias.');
+            console.error(err);
+        }
     };
 
     const handleInputChange = (
@@ -117,6 +135,10 @@ const Vehicles: React.FC = () => {
         }
 
     };
+
+    const latestRateId = dailyRates.reduce((latest, current) =>
+            new Date(current.dateTime) > new Date(latest.dateTime) ? current : latest
+        , dailyRates[0])?.id;
 
     const handleEdit = (vehicle: Vehicle) => {
         setEditingVehicle(vehicle);
@@ -201,7 +223,7 @@ const Vehicles: React.FC = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1" htmlFor="brand">
-                                        Marca
+                                        Marca <span className="text-red-500">*</span>
                                     </label>
                                     <Input
                                         id="brand"
@@ -213,7 +235,7 @@ const Vehicles: React.FC = () => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1" htmlFor="model">
-                                        Modelo
+                                        Modelo <span className="text-red-500">*</span>
                                     </label>
                                     <Input
                                         id="model"
@@ -230,7 +252,7 @@ const Vehicles: React.FC = () => {
                                     <Input
                                         id="year"
                                         name="year"
-                                        type="text" // string no backend, evita conversão automática
+                                        type="text"
                                         maxLength={10}
                                         value={formData.year}
                                         onChange={handleInputChange}
@@ -239,7 +261,7 @@ const Vehicles: React.FC = () => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1" htmlFor="plate">
-                                        Placa
+                                        Placa <span className="text-red-500">*</span>
                                     </label>
                                     <Input
                                         id="plate"
@@ -248,11 +270,12 @@ const Vehicles: React.FC = () => {
                                         onChange={handleInputChange}
                                         maxLength={20}
                                         required
+                                        disabled={!!editingVehicle}
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1" htmlFor="dailyRate">
-                                        Diária (R$)
+                                        Diária (R$) <span className="text-red-500">*</span>
                                     </label>
                                     <Input
                                         id="dailyRate"
@@ -262,6 +285,7 @@ const Vehicles: React.FC = () => {
                                         step="0.01"
                                         value={formData.dailyRate || 0}
                                         onChange={handleInputChange}
+                                        required
                                     />
                                 </div>
                                 <div>
@@ -375,8 +399,16 @@ const Vehicles: React.FC = () => {
                                                         className="text-red-500 border-red-200 hover:bg-red-50"
                                                         onClick={() => confirmDelete(vehicle)}
                                                     >
-                                                        <Trash2 className="h-4 w-4" />
+                                                        <Trash2 className="h-4 w-4"/>
                                                     </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => openDailyRateHistory(vehicle)}
+                                                    >
+                                                        <Clock className="h-4 w-4"/>
+                                                    </Button>
+
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -414,6 +446,56 @@ const Vehicles: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {dailyRatesModalOpen && selectedVehicle && (
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                    onClick={() => setDailyRatesModalOpen(false)}
+                >
+                    <div
+                        className="bg-white rounded-lg p-6 w-[90%] max-w-2xl shadow-lg"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <h2 className="text-xl font-semibold mb-4">
+                            Histórico de Diárias - {selectedVehicle.plate}
+                        </h2>
+                        {dailyRates.length > 0 ? (
+                            <ul className="space-y-2 max-h-80 overflow-y-auto">
+                                {dailyRates.map((rate) => (
+                                    <li
+                                        key={rate.id}
+                                        className="border rounded p-3 flex justify-between items-center"
+                                    >
+                                        <div className="flex items-center gap-2">
+        <span>{new Date(rate.dateTime).toLocaleString('pt-BR', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: false
+        })}</span>
+
+                                            {rate.id === latestRateId && (
+                                                <CheckCircle className="text-green-600" size={18} title="Diária mais atual" />
+                                            )}
+                                        </div>
+                                        <span className="font-medium text-green-600">
+        R$ {(rate.amount ?? 0).toFixed(2)}
+      </span>
+                                    </li>
+                                ))}
+                            </ul>
+
+                        ) : (
+                            <p className="text-gray-500">Nenhuma diária encontrada para este veículo.</p>
+                        )}
+                        <div className="mt-6 text-right">
+                            <Button variant="outline" onClick={() => setDailyRatesModalOpen(false)}>
+                                Fechar
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

@@ -11,7 +11,8 @@ import {
   Settings, 
   LogOut, 
   LayoutDashboard, 
-  UserCog
+  UserCog,
+  Clock
 } from 'lucide-react';
 import { User } from '@/types';
 import { EmployeeRole } from '@/types';
@@ -101,6 +102,7 @@ export function AppSidebar() {
   const allNavItems: NavMenuItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', to: '/', allowedRoles: ['admin', 'attendant', 'client', 'financial', 'maintenance'] },
     { icon: Car, label: 'Veículos', to: '/veiculos', allowedRoles: ['admin', 'attendant', 'client'] },
+    { icon: Clock, label: 'Diárias', to: '/diarias', allowedRoles: ['admin', 'attendant', 'client'] },
     { icon: Calendar, label: 'Reservas', to: '/reservas', allowedRoles: ['admin', 'attendant', 'client', 'financial'] },
     { icon: Users, label: 'Clientes', to: '/clientes', allowedRoles: ['admin', 'attendant'] },
     { icon: UserCog, label: 'Usuários', to: '/usuarios', allowedRoles: ['admin'] },

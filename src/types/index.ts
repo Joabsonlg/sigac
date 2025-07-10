@@ -158,9 +158,9 @@ export type Maintenance = {
 
 export type DailyRate = {
   id: number;
-  datetime: string;
+  dateTime: string;
   amount: number;
-  vehicle_plate: string; // Reference to Vehicle
+  vehiclePlate: string; // Reference to Vehicle
 };
 
 // Legacy role type for Employee (keeping for backward compatibility)
