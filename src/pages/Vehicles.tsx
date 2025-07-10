@@ -15,6 +15,7 @@ import {Badge} from '@/components/ui/badge';
 import {CreateVehicleRequest, VehiclesService, VehicleStatus} from '@/services/vehiclesService';
 import {toast} from "sonner";
 import {DailyRatesService} from "@/services/dailyRatesService.ts";
+import DailyRatesChart from "@/pages/DailyRatesChart.tsx";
 
 const Vehicles: React.FC = () => {
     const [vehiclesList, setVehiclesList] = useState<Vehicle[]>([]);
@@ -453,40 +454,47 @@ const Vehicles: React.FC = () => {
                     onClick={() => setDailyRatesModalOpen(false)}
                 >
                     <div
-                        className="bg-white rounded-lg p-6 w-[90%] max-w-2xl shadow-lg"
+                        className="bg-white rounded-lg p-6 w-[90%] max-w-2xl shadow-lg max-h-[90vh] overflow-y-auto"
                         onClick={e => e.stopPropagation()}
                     >
                         <h2 className="text-xl font-semibold mb-4">
                             Histórico de Diárias - {selectedVehicle.plate}
                         </h2>
+
+                        <DailyRatesChart dailyRates={dailyRates} />
+
                         {dailyRates.length > 0 ? (
-                            <ul className="space-y-2 max-h-80 overflow-y-auto">
+                            <ul className="space-y-2">
                                 {dailyRates.map((rate) => (
                                     <li
                                         key={rate.id}
                                         className="border rounded p-3 flex justify-between items-center"
                                     >
                                         <div className="flex items-center gap-2">
-        <span>{new Date(rate.dateTime).toLocaleString('pt-BR', {
-            day: '2-digit', month: '2-digit', year: 'numeric',
-            hour: '2-digit', minute: '2-digit', second: '2-digit',
-            hour12: false
-        })}</span>
+          <span>{new Date(rate.dateTime).toLocaleString('pt-BR', {
+              day: '2-digit', month: '2-digit', year: 'numeric',
+              hour: '2-digit', minute: '2-digit', second: '2-digit',
+              hour12: false
+          })}</span>
 
                                             {rate.id === latestRateId && (
-                                                <CheckCircle className="text-green-600" size={18} title="Diária mais atual" />
+                                                <CheckCircle
+                                                    className="text-green-600"
+                                                    size={18}
+                                                />
                                             )}
                                         </div>
                                         <span className="font-medium text-green-600">
-        R$ {(rate.amount ?? 0).toFixed(2)}
-      </span>
+          R$ {(rate.amount ?? 0).toFixed(2)}
+        </span>
                                     </li>
                                 ))}
                             </ul>
-
                         ) : (
                             <p className="text-gray-500">Nenhuma diária encontrada para este veículo.</p>
                         )}
+
+
                         <div className="mt-6 text-right">
                             <Button variant="outline" onClick={() => setDailyRatesModalOpen(false)}>
                                 Fechar
@@ -495,10 +503,8 @@ const Vehicles: React.FC = () => {
                     </div>
                 </div>
             )}
-
         </div>
     );
 };
 
-// @ts-ignore
 export default Vehicles;
