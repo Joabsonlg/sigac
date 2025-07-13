@@ -30,12 +30,18 @@ const Vehicles: React.FC = () => {
     const [dailyRates, setDailyRates] = useState<DailyRate[]>([]);
     const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
     const { user } = useAuth();
-    const isClient = user?.role?.toLowerCase() === 'client' || user?.role?.toLowerCase() === 'cliente';
+    const role = user?.role?.toLowerCase();
+    const isClient = role === 'client' || role === 'cliente';
+    const isAttendant = role === 'attendant' || role === 'atendente';
     const navigate = useNavigate();
 
-    // Redireciona cliente para reservas com veículo pré-selecionado
+    // Redireciona para reservas com veículo pré-selecionado
     const handleReserveVehicle = (vehicle: Vehicle) => {
-        navigate(`/reservas?vehicle=${encodeURIComponent(vehicle.plate)}&openForm=true`);
+        if (isClient) {
+            navigate(`/reservas?vehicle=${encodeURIComponent(vehicle.plate)}&openForm=true`);
+        } else if (isAttendant) {
+            navigate(`/reservas?vehicle=${encodeURIComponent(vehicle.plate)}&openForm=true&employee=${encodeURIComponent(user?.cpf || '')}`);
+        }
     };
 
 
@@ -217,7 +223,7 @@ const Vehicles: React.FC = () => {
         <div className="p-6">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold">Gerenciamento de Veículos</h1>
-                {!isClient && (
+                {!(isClient || isAttendant) && (
                   <Button onClick={() => {
                       resetForm();
                       setShowForm(!showForm);
@@ -227,7 +233,7 @@ const Vehicles: React.FC = () => {
                 )}
             </div>
 
-            {!isClient && showForm && (
+            {!(isClient || isAttendant) && showForm && (
                 <Card className="mb-6">
                     <CardHeader>
                         <CardTitle>{editingVehicle ? 'Editar Veículo' : 'Novo Veículo'}</CardTitle>
@@ -410,7 +416,7 @@ const Vehicles: React.FC = () => {
                                                     >
                                                         <Clock className="h-4 w-4"/>
                                                     </Button>
-                                                    {isClient && (
+                                                    {(isClient || isAttendant) && (
                                                       <Button
                                                         variant="outline"
                                                         size="sm"
@@ -420,7 +426,7 @@ const Vehicles: React.FC = () => {
                                                         <ArrowRight className="h-4 w-4" /> Reservar
                                                       </Button>
                                                     )}
-                                                    {!isClient && (
+                                                    {!(isClient || isAttendant) && (
                                                       <>
                                                         <Button variant="outline" size="sm"
                                                                 onClick={() => handleEdit(vehicle)}>

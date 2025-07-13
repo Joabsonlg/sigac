@@ -26,7 +26,9 @@ import FilterableSelect from '@/components/ui/filterable-select';
 
 const Reservations: React.FC = () => {
   const { user } = useAuth();
-  const isClient = user?.role?.toLowerCase() === 'client' || user?.role?.toLowerCase() === 'cliente';
+  const role = user?.role?.toLowerCase();
+  const isClient = role === 'client' || role === 'cliente';
+  const isAttendant = role === 'attendant' || role === 'atendente';
   const location = useLocation();
   
   const searchParams = new URLSearchParams(location.search);
@@ -57,7 +59,7 @@ const Reservations: React.FC = () => {
     startDate: '',
     endDate: '',
     clientUserCpf: isClient ? user?.cpf || '' : '',
-    employeeUserCpf: '',
+    employeeUserCpf: isAttendant ? user?.cpf || '' : '',
     vehiclePlate: vehicleParam || '',
     promotionCode: undefined
   });
@@ -73,8 +75,11 @@ const Reservations: React.FC = () => {
     if (isClient && user?.cpf) {
       setFormData(prev => ({ ...prev, clientUserCpf: user.cpf }));
     }
+    if (isAttendant && user?.cpf) {
+      setFormData(prev => ({ ...prev, employeeUserCpf: user.cpf }));
+    }
     loadReservations();
-  }, [openFormParam, vehicleParam, isClient, user]);
+  }, [openFormParam, vehicleParam, isClient, isAttendant, user]);
 
   // Reload reservations when filters change (with debounce for search)
   useEffect(() => {
@@ -430,7 +435,18 @@ const Reservations: React.FC = () => {
                     />
                   )}
                 </div>
-                {!isClient && (
+                {isAttendant ? (
+                  <div>
+                    <Label htmlFor="employeeUserCpf">Funcionário</Label>
+                    <Input
+                      id="employeeUserCpf"
+                      name="employeeUserCpf"
+                      value={user?.name ? `${user.name} - ${user.cpf}` : user?.cpf || ''}
+                      readOnly
+                      disabled
+                    />
+                  </div>
+                ) : (!isClient && (
                   <div>
                     <Label htmlFor="employeeUserCpf">Funcionário</Label>
                     <FilterableSelect
@@ -442,7 +458,7 @@ const Reservations: React.FC = () => {
                       emptyMessage="Nenhum funcionário encontrado."
                     />
                   </div>
-                )}
+                ))}
                 <div>
                   <Label htmlFor="vehiclePlate">Veículo</Label>
                   <FilterableSelect

@@ -104,7 +104,7 @@ export function AppSidebar() {
             allowedRoles: ['admin', 'attendant', 'client', 'financial']
         },
         {icon: Car, label: 'Veículos', to: '/veiculos', allowedRoles: ['admin', 'attendant', 'client']},
-        {icon: Clock, label: 'Diárias', to: '/diarias', allowedRoles: ['admin', 'attendant', 'financial']},
+        {icon: Clock, label: 'Diárias', to: '/diarias', allowedRoles: ['admin', 'financial']},
         {icon: Users, label: 'Clientes', to: '/clientes', allowedRoles: ['admin', 'attendant']},
         {icon: UserCog, label: 'Usuários', to: '/usuarios', allowedRoles: ['admin']},
         {icon: Wrench, label: 'Manutenção', to: '/manutencao', allowedRoles: ['admin', 'attendant', 'maintenance']},
