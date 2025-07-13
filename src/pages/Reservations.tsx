@@ -1,22 +1,17 @@
 import {useLocation} from 'react-router-dom';
-import React, {useState, useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 import {ReservationData} from '@/types';
 import ReservationsService, {
     CreateReservationRequest,
-    UpdateReservationRequest,
-    ReservationStatus
+    ReservationStatus,
+    UpdateReservationRequest
 } from '@/services/reservationsService';
 import useSelectWithFilter from '@/hooks/useSelectWithFilter';
-import {
-    Table, TableHeader, TableRow, TableHead,
-    TableBody, TableCell
-} from '@/components/ui/table';
+import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
-import {Card, CardHeader, CardTitle, CardContent} from '@/components/ui/card';
-import {
-    Calendar, Plus, Edit, Trash2, Check, X, Search, Loader2, CalendarCheck
-} from 'lucide-react';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {Ban, CalendarCheck, Check, CreditCard, Edit, Loader2, Plus, Search, Trash2, X} from 'lucide-react';
 import {Label} from '@/components/ui/label';
 import {Badge} from '@/components/ui/badge';
 import {useToast} from '@/hooks/use-toast';
@@ -25,6 +20,9 @@ import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/c
 import FilterableSelect from '@/components/ui/filterable-select';
 
 const Reservations: React.FC = () => {
+    // Estado para modal de pagamento
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [selectedReservation, setSelectedReservation] = useState<ReservationData | null>(null);
     // Utilitário para formatar valores em reais
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'}).format(value);
@@ -726,15 +724,29 @@ const Reservations: React.FC = () => {
                                                 <TableCell>
                                                     <div className="flex space-x-2">
                                                         {isClient ? (
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                className="text-red-600 hover:text-red-700"
-                                                                onClick={() => handleCancelReservation(reservation.id)}
-                                                                disabled={reservation.status === 'CANCELLED' || reservation.status === 'COMPLETED'}
-                                                            >
-                                                                Cancelar
-                                                            </Button>
+                                                            <>
+                                                                <button
+                                                                    type="button"
+                                                                    className={`p-2 rounded ${['PENDING', 'CONFIRMED'].includes(reservation.status) ? 'hover:bg-red-100 text-red-600' : 'text-gray-400 cursor-not-allowed'}`}
+                                                                    title="Cancelar Reserva"
+                                                                    onClick={() => handleCancelReservation(reservation.id)}
+                                                                    disabled={!['PENDING', 'CONFIRMED'].includes(reservation.status)}
+                                                                >
+                                                                    <Ban className="h-5 w-5"/>
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className={`p-2 rounded ${reservation.status === 'PENDING' ? 'hover:bg-blue-100 text-blue-600' : 'text-gray-400 cursor-not-allowed'}`}
+                                                                    title="Pagamento"
+                                                                    onClick={() => {
+                                                                        setSelectedReservation(reservation);
+                                                                        setShowPaymentModal(true);
+                                                                    }}
+                                                                    disabled={reservation.status !== 'PENDING'}
+                                                                >
+                                                                    <CreditCard className="h-5 w-5"/>
+                                                                </button>
+                                                            </>
                                                         ) : (
                                                             <>
                                                                 <Button
@@ -755,6 +767,51 @@ const Reservations: React.FC = () => {
                                                             </>
                                                         )}
                                                     </div>
+                                                    {/* Modal de Pagamento */}
+                                                    {showPaymentModal && selectedReservation && (
+                                                        <div
+                                                            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                                                            <div
+                                                                className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative">
+                                                                <button
+                                                                    className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+                                                                    onClick={() => setShowPaymentModal(false)}
+                                                                >
+                                                                    <X className="h-5 w-5"/>
+                                                                </button>
+                                                                <h2 className="text-xl font-bold mb-4">Pagamento da
+                                                                    Reserva</h2>
+                                                                <div className="mb-4 flex flex-col items-center">
+                                                                    {/* QRCode placeholder - substitua por componente real se necessário */}
+                                                                    <div
+                                                                        className="bg-gray-100 p-4 rounded mb-2 flex items-center justify-center">
+                                                                        <img src="/qr-code.png" alt="QR Code"
+                                                                             className="h-32 w-32"/>
+                                                                    </div>
+                                                                    <span
+                                                                        className="font-semibold text-green-700 text-lg mb-2">{formatCurrency(Number(selectedReservation.amount))}</span>
+                                                                    <span className="text-sm text-gray-600">Escaneie o QR Code para realizar o pagamento.</span>
+                                                                </div>
+                                                                <div className="mt-4">
+                                                                    <h3 className="font-semibold mb-1">Contato do
+                                                                        Financeiro</h3>
+                                                                    <div className="text-sm text-gray-700">
+                                                                        WhatsApp: <a href="https://wa.me/5599999999999"
+                                                                                     target="_blank"
+                                                                                     rel="noopener noreferrer"
+                                                                                     className="text-blue-600 underline">(99)
+                                                                        99999-9999</a><br/>
+                                                                        E-mail: <a href="mailto:financeiro@empresa.com"
+                                                                                   className="text-blue-600 underline">financeiro@empresa.com</a>
+                                                                    </div>
+                                                                    <div className="text-xs text-gray-500 mt-2">Envie o
+                                                                        comprovante de pagamento para agilizar a
+                                                                        liberação da reserva.
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         ))
