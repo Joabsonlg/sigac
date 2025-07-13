@@ -88,7 +88,7 @@ export type Reservation = {
   promotion_code?: string; // Optional reference to Promotion
   
   // Legacy compatibility properties
-  clientId?: string;
+  clientUserCpf?: string;
   vehiclePlate?: string;
   startDate?: string;
   endDate?: string;
