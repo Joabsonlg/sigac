@@ -65,7 +65,6 @@ const RecentReservations: React.FC<RecentReservationsProps> = ({ reservas = [] }
                     <th className="px-4 py-3">Cliente</th>
                     <th className="px-4 py-3">Veículo</th>
                     <th className="px-4 py-3">Período</th>
-                    <th className="px-4 py-3 text-center">Status</th>
                 </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -81,9 +80,6 @@ const RecentReservations: React.FC<RecentReservationsProps> = ({ reservas = [] }
                             <td className="px-4 py-4 font-medium text-gray-900">{customerName}</td>
                             <td className="px-4 py-4 text-gray-700">{vehicle}</td>
                             <td className="px-4 py-4 text-gray-700">{startDateFormatted} - {endDateFormatted}</td>
-                            <td className="px-4 py-4 text-center">
-                                <StatusBadge status={reservation.status as ValidStatus} />
-                            </td>
                         </tr>
                     );
                 })}

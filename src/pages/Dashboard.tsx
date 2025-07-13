@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import RevenueChart from '@/components/dashboard/RevenueChart';
 import RecentMaintenance from '@/components/dashboard/RecentMaintenance.tsx';
 import RecentReservations from '@/components/dashboard/RecentReservations';
 import VehicleStatus from '@/components/dashboard/VehicleStatus';
 import StatCard from '@/components/dashboard/StatCard';
 import { Car, Calendar, Users, DollarSign } from 'lucide-react';
 import { fetchDashboardSummary, DashboardSummaryDTO } from '@/services/dashboardService';
+import ReservationsChart from "@/components/dashboard/ReservationsChart.tsx";
 
 const Dashboard: React.FC = () => {
   const [dashboardData, setDashboardData] = useState<DashboardSummaryDTO | null>(null);
@@ -29,7 +29,7 @@ const Dashboard: React.FC = () => {
 
   return (
       <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
           <StatCard
               title="Total de Veículos"
               value={dashboardData?.totalVeiculos.toString() || '0'}
@@ -52,18 +52,11 @@ const Dashboard: React.FC = () => {
               icon={Users}
               color="yellow"
           />
-          <StatCard
-              title="Receita Mensal"
-              value={'R$ 0,00'}
-              isPositive={true}
-              icon={DollarSign}
-              color="red"
-          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            <RevenueChart/>
+            <ReservationsChart/>
             <RecentReservations reservas={dashboardData?.reservasRecentes || []} />
           </div>
 
