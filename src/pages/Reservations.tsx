@@ -25,6 +25,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import FilterableSelect from '@/components/ui/filterable-select';
 
 const Reservations: React.FC = () => {
+  // Utilitário para formatar valores em reais
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  };
+  // Estado para valor calculado
+  const [calculatedAmount, setCalculatedAmount] = useState<number | null>(null);
+  const [calculatingAmount, setCalculatingAmount] = useState(false);
   const { user } = useAuth();
   const role = user?.role?.toLowerCase();
   const isClient = role === 'client' || role === 'cliente';
@@ -139,8 +146,14 @@ const Reservations: React.FC = () => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'promotionCode' ? (value ? Number(value) : undefined) : value
+      [name]: name === 'promotionCode'
+        ? (value === '' ? undefined : Number(value))
+        : value
     }));
+    // Dispara cálculo se campos relevantes mudarem
+    if (["startDate", "endDate", "vehiclePlate", "promotionCode"].includes(name)) {
+      triggerAmountCalculation({ ...formData, [name]: name === 'promotionCode' ? (value ? Number(value) : undefined) : value });
+    }
   };
 
   const handleSelectChange = (name: string, value: string) => {
@@ -148,6 +161,39 @@ const Reservations: React.FC = () => {
       ...prev,
       [name]: value
     }));
+    // Dispara cálculo se campos relevantes mudarem
+    if (["startDate", "endDate", "vehiclePlate", "promotionCode"].includes(name)) {
+      triggerAmountCalculation({ ...formData, [name]: value });
+    }
+  };
+
+  // Função para calcular valor da reserva
+  const triggerAmountCalculation = async (data: Partial<CreateReservationRequest>) => {
+    const { startDate, endDate, vehiclePlate, promotionCode } = data;
+    if (startDate && endDate && vehiclePlate) {
+      setCalculatingAmount(true);
+      try {
+        const payload: { startDate: string; endDate: string; vehiclePlate: string; promotionCode?: number } = {
+          startDate,
+          endDate,
+          vehiclePlate
+        };
+        if (
+          typeof promotionCode === 'number' &&
+          !isNaN(promotionCode)
+        ) {
+          payload.promotionCode = promotionCode;
+        }
+        const amount = await ReservationsService.calculateAmount(payload);
+        setCalculatedAmount(amount);
+      } catch (err) {
+        setCalculatedAmount(null);
+      } finally {
+        setCalculatingAmount(false);
+      }
+    } else {
+      setCalculatedAmount(null);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -481,6 +527,18 @@ const Reservations: React.FC = () => {
                     placeholder="Opcional"
                   />
                 </div>
+                <div className="md:col-span-2">
+                  <Label>Valor a Pagar</Label>
+                  <div className="mt-1">
+                    {calculatingAmount ? (
+                      <span className="text-gray-500">Calculando...</span>
+                    ) : calculatedAmount !== null ? (
+                      <span className="font-bold text-green-700">{formatCurrency(calculatedAmount)}</span>
+                    ) : (
+                      <span className="text-gray-400">Informe datas e veículo para calcular</span>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end space-x-2">
@@ -564,6 +622,7 @@ const Reservations: React.FC = () => {
                     <TableHead>Data Início</TableHead>
                     <TableHead>Data Fim</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Valor</TableHead>
                     <TableHead>Promoção</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
@@ -624,6 +683,11 @@ const Reservations: React.FC = () => {
                               </SelectContent>
                             </Select>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          {reservation.amount !== undefined && reservation.amount !== null
+                            ? formatCurrency(Number(reservation.amount))
+                            : '-'}
                         </TableCell>
                         <TableCell>
                           {reservation.promotionCode || '-'}

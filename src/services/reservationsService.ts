@@ -47,6 +47,24 @@ export interface ReservationResponse {
 }
 
 export class ReservationsService {
+  /**
+   * Calcula o valor da reserva
+   */
+  static async calculateAmount({ startDate, endDate, vehiclePlate, promotionCode }: {
+    startDate: string;
+    endDate: string;
+    vehiclePlate: string;
+    promotionCode?: number;
+  }): Promise<number> {
+    const response = await api.post('/api/reservations/calculate-amount', {
+      startDate,
+      endDate,
+      vehiclePlate,
+      promotionCode: promotionCode ?? null
+    });
+    const data = response.data.data
+    return typeof data === 'number' ? data : 0;
+  }
   
   /**
    * Get paginated list of reservations

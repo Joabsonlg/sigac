@@ -112,6 +112,7 @@ export type ReservationData = {
   vehiclePlate: string;
   vehicleModel: string;
   vehicleBrand: string;
+  amount: number;
 };
 
 export type Payment = {
