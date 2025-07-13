@@ -57,9 +57,9 @@ export const clientIdToCustomerCpf = (clientId: string): string => {
   return clientId; // In our implementation, clientId is the CPF
 };
 
-// Convert vehicleId to vehicle_plate
-export const vehicleIdToVehiclePlate = (vehicleId: string): string => {
-  return vehicleId; // In our implementation, vehicleId is the license plate
+// Convert vehiclePlate to vehicle_plate
+export const vehiclePlateToVehiclePlate = (vehiclePlate: string): string => {
+  return vehiclePlate; // In our implementation, vehiclePlate is the license plate
 };
 
 // New helper functions for data model mapping
@@ -74,7 +74,7 @@ export const ensureCompatibilityFields = () => {
   // Add compatibility fields to reservations
   for (const reservation of reservations) {
     if (!reservation.clientId) reservation.clientId = reservation.customer_cpf;
-    if (!reservation.vehicleId) reservation.vehicleId = reservation.vehicle_plate;
+    if (!reservation.vehiclePlate) reservation.vehiclePlate = reservation.vehicle_plate;
     if (!reservation.startDate) reservation.startDate = reservation.start_date;
     if (!reservation.endDate) reservation.endDate = reservation.end_date;
     if (!reservation.totalAmount) reservation.totalAmount = reservation.amount;

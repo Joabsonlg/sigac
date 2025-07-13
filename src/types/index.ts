@@ -89,7 +89,7 @@ export type Reservation = {
   
   // Legacy compatibility properties
   clientId?: string;
-  vehicleId?: string;
+  vehiclePlate?: string;
   startDate?: string;
   endDate?: string;
   totalAmount?: number;
@@ -143,17 +143,26 @@ export interface VehiclePage {
   hasPrevious: boolean;
 }
 
+export interface MaintenancePage {
+  content: Vehicle[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
 
 export type Maintenance = {
   id: number;
-  type: string;
   description: string;
-  status: string;
   scheduled_date: string;
   completed_date?: string;
   cost: number;
-  vehicle_plate: string; // Reference to Vehicle
-  employee_cpf: string;  // Reference to Employee who scheduled/performed
+  type: 'PREVENTIVA' | 'CORRETIVA' | 'PREDITIVA';
+  status: 'AGENDADA' | 'CONCLUIDA' | 'CANCELADA' | 'EM_ANDAMENTO';
+  vehicle_plate: string;
+  employee_cpf: string;
 };
 
 export type DailyRate = {

@@ -32,7 +32,7 @@ export interface LegacyClient {
 
 export interface LegacyReservation {
   id: string;
-  vehicleId: string;
+  vehiclePlate: string;
   clientId: string;
   startDate: string;
   endDate: string;
@@ -44,13 +44,14 @@ export interface LegacyReservation {
 
 export interface LegacyMaintenanceRecord {
   id: string;
-  vehicleId: string;
+  vehiclePlate: string;
   type: 'preventive' | 'corrective';
   description: string;
   scheduledDate: string;
   completedDate?: string;
   cost?: number;
-  status: 'scheduled' | 'in_progress' | 'completed';
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  employeeUserCpf?: string;
 }
 
 export interface LegacyUser {
@@ -102,7 +103,7 @@ export const reservationToLegacy = (reservation: Reservation): LegacyReservation
   
   return {
     id: reservation.id.toString(),
-    vehicleId: reservation.vehicle_plate,
+    vehiclePlate: reservation.vehicle_plate,
     clientId: reservation.customer_cpf,
     startDate: reservation.start_date,
     endDate: reservation.end_date,
@@ -123,12 +124,12 @@ export const adaptLegacyReservationToNew = (legacyReservation: LegacyReservation
     status: legacyReservation.status,
     amount: legacyReservation.totalAmount,
     customer_cpf: legacyReservation.clientId,
-    vehicle_plate: legacyReservation.vehicleId,
+    vehicle_plate: legacyReservation.vehiclePlate,
     promotion_code: legacyReservation.promoCode,
     
     // Keep legacy fields for compatibility
     clientId: legacyReservation.clientId,
-    vehicleId: legacyReservation.vehicleId,
+    vehiclePlate: legacyReservation.vehiclePlate,
     startDate: legacyReservation.startDate,
     endDate: legacyReservation.endDate,
     totalAmount: legacyReservation.totalAmount,
@@ -179,7 +180,7 @@ export const userToLegacyUser = (user: User): LegacyUser => {
 export const maintenanceToLegacy = (maintenance: Maintenance): LegacyMaintenanceRecord => {
   return {
     id: maintenance.id.toString(),
-    vehicleId: maintenance.vehicle_plate,
+    vehiclePlate: maintenance.vehicle_plate,
     type: maintenance.type as 'preventive' | 'corrective',
     description: maintenance.description,
     scheduledDate: maintenance.scheduled_date,

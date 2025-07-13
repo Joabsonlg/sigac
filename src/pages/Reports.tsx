@@ -296,7 +296,7 @@ const FleetReport = () => {
   
   const handleExportMaintenanceTableToPDF = () => {
     const tableData = maintenanceRecords.map((record) => {
-      const vehicle = vehicles.find(v => v.id === record.vehicleId);
+      const vehicle = vehicles.find(v => v.id === record.vehiclePlate);
       const vehicleName = vehicle ? `${vehicle.brand} ${vehicle.model}` : 'N/A';
       const status = record.status === 'completed' ? 'Concluída' :
                     record.status === 'in_progress' ? 'Em Andamento' : 'Agendada';
@@ -404,7 +404,7 @@ const FleetReport = () => {
               </TableHeader>
               <TableBody>
                 {maintenanceRecords.map((record) => {
-                  const vehicle = vehicles.find(v => v.id === record.vehicleId);
+                  const vehicle = vehicles.find(v => v.id === record.vehiclePlate);
                   return (
                     <TableRow key={record.id}>
                       <TableCell>
@@ -464,7 +464,7 @@ const ReservationReport = () => {
   const handleExportReservationsTableToPDF = () => {
     const tableData = reservations.map((reservation) => {
       const client = clients.find(c => c.id === reservation.clientId);
-      const vehicle = vehicles.find(v => v.id === reservation.vehicleId);
+      const vehicle = vehicles.find(v => v.id === reservation.vehiclePlate);
       
       return [
         client ? client.name : 'N/A',
@@ -600,7 +600,7 @@ const ReservationReport = () => {
               <TableBody>
                 {reservations.slice(0, 5).map((reservation) => {
                   const client = clients.find(c => c.id === reservation.clientId);
-                  const vehicle = vehicles.find(v => v.id === reservation.vehicleId);
+                  const vehicle = vehicles.find(v => v.id === reservation.vehiclePlate);
                   return (
                     <TableRow key={reservation.id}>
                       <TableCell>

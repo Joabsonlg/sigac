@@ -34,7 +34,7 @@ Primeiro, adicione os tipos necessários em `src/types/index.ts`:
 ```typescript
 export type Tire = {
   id: string;
-  vehicleId: string;
+    vehiclePlate: string;
   brand: string;
   model: string;
   size: string;
