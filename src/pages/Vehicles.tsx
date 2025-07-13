@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import {DailyRate, Vehicle} from '@/types';
 import {
     Table, TableHeader, TableRow, TableHead,
@@ -9,13 +10,15 @@ import {Input} from '@/components/ui/input';
 import {Card, CardHeader, CardTitle, CardContent} from '@/components/ui/card';
 import {
     Car, Plus, Edit, Trash2, Check, X, Search,
-    Clock, CheckCircle
+    Clock, CheckCircle, ArrowRight
 } from 'lucide-react';
 import {Badge} from '@/components/ui/badge';
 import {CreateVehicleRequest, VehiclesService, VehicleStatus} from '@/services/vehiclesService';
 import {toast} from "sonner";
 import {DailyRatesService} from "@/services/dailyRatesService.ts";
 import DailyRatesChart from "@/pages/DailyRatesChart.tsx";
+
+import { useNavigate } from 'react-router-dom';
 
 const Vehicles: React.FC = () => {
     const [vehiclesList, setVehiclesList] = useState<Vehicle[]>([]);
@@ -26,6 +29,14 @@ const Vehicles: React.FC = () => {
     const [dailyRatesModalOpen, setDailyRatesModalOpen] = useState(false);
     const [dailyRates, setDailyRates] = useState<DailyRate[]>([]);
     const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+    const { user } = useAuth();
+    const isClient = user?.role?.toLowerCase() === 'client' || user?.role?.toLowerCase() === 'cliente';
+    const navigate = useNavigate();
+
+    // Redireciona cliente para reservas com veículo pré-selecionado
+    const handleReserveVehicle = (vehicle: Vehicle) => {
+        navigate(`/reservas?vehicle=${encodeURIComponent(vehicle.plate)}&openForm=true`);
+    };
 
 
     useEffect(() => {
@@ -206,15 +217,17 @@ const Vehicles: React.FC = () => {
         <div className="p-6">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold">Gerenciamento de Veículos</h1>
-                <Button onClick={() => {
-                    resetForm();
-                    setShowForm(!showForm);
-                }}>
-                    <Plus className="mr-2 h-4 w-4"/> Novo Veículo
-                </Button>
+                {!isClient && (
+                  <Button onClick={() => {
+                      resetForm();
+                      setShowForm(!showForm);
+                  }}>
+                      <Plus className="mr-2 h-4 w-4"/> Novo Veículo
+                  </Button>
+                )}
             </div>
 
-            {showForm && (
+            {!isClient && showForm && (
                 <Card className="mb-6">
                     <CardHeader>
                         <CardTitle>{editingVehicle ? 'Editar Veículo' : 'Novo Veículo'}</CardTitle>
@@ -390,18 +403,6 @@ const Vehicles: React.FC = () => {
                                             <TableCell>{getStatusBadge(vehicle.status)}</TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    <Button variant="outline" size="sm"
-                                                            onClick={() => handleEdit(vehicle)}>
-                                                        <Edit className="h-4 w-4"/>
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="text-red-500 border-red-200 hover:bg-red-50"
-                                                        onClick={() => confirmDelete(vehicle)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4"/>
-                                                    </Button>
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
@@ -409,7 +410,32 @@ const Vehicles: React.FC = () => {
                                                     >
                                                         <Clock className="h-4 w-4"/>
                                                     </Button>
-
+                                                    {isClient && (
+                                                      <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="text-blue-500 border-blue-200 hover:bg-blue-50"
+                                                        onClick={() => handleReserveVehicle(vehicle)}
+                                                      >
+                                                        <ArrowRight className="h-4 w-4" /> Reservar
+                                                      </Button>
+                                                    )}
+                                                    {!isClient && (
+                                                      <>
+                                                        <Button variant="outline" size="sm"
+                                                                onClick={() => handleEdit(vehicle)}>
+                                                            <Edit className="h-4 w-4"/>
+                                                        </Button>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="text-red-500 border-red-200 hover:bg-red-50"
+                                                            onClick={() => confirmDelete(vehicle)}
+                                                        >
+                                                            <Trash2 className="h-4 w-4"/>
+                                                        </Button>
+                                                      </>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -427,7 +453,7 @@ const Vehicles: React.FC = () => {
                 </CardContent>
             </Card>
             {/* Modal simples de confirmação */}
-            {vehicleToDelete && (
+            {!isClient && vehicleToDelete && (
                 <div
                     className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
                     onClick={cancelDelete} // fecha modal clicando fora

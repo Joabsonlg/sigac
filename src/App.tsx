@@ -31,7 +31,7 @@ const queryClient = new QueryClient();
 
 // Protected Routes Component
 const AppRoutes = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -44,23 +44,29 @@ const AppRoutes = () => {
     );
   }
 
+  const isClient = user?.role?.toLowerCase() === 'client' || user?.role?.toLowerCase() === 'cliente';
+
   return (
     <BrowserRouter>
       <Routes>
         {/* Auth Routes */}
-        <Route element={<AuthLayout />}>
+        <Route element={<AuthLayout />}> 
           <Route path="/login" element={
-            isAuthenticated ? <Navigate to="/" replace /> : <Login />
+            isAuthenticated ? (
+              isClient ? <Navigate to="/reservas" replace /> : <Navigate to="/" replace />
+            ) : <Login />
           } />
           <Route path="/cadastro" element={<Register />} />
           <Route path="/recuperar-senha" element={<ResetPassword />} />
         </Route>
-        
+
         {/* App Routes - Protected routes that require authentication */}
         <Route path="/" element={
           isAuthenticated ? <Layout /> : <Navigate to="/login" replace />
         }>
-          <Route index element={<Dashboard />} />
+          <Route index element={
+            isClient ? <Navigate to="/reservas" replace /> : <Dashboard />
+          } />
           <Route path="/veiculos" element={<Vehicles />} />
           <Route path="/diarias" element={<DailyRate />} />
           <Route path="/reservas" element={<Reservations />} />
@@ -71,7 +77,7 @@ const AppRoutes = () => {
           <Route path="/configuracoes" element={<Settings />} />
           <Route path="/usuarios" element={<Users />} />
         </Route>
-        
+
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

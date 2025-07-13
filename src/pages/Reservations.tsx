@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import { ReservationData } from '@/types';
 import ReservationsService, { 
@@ -19,13 +20,21 @@ import {
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import FilterableSelect from '@/components/ui/filterable-select';
 
 const Reservations: React.FC = () => {
+  const { user } = useAuth();
+  const isClient = user?.role?.toLowerCase() === 'client' || user?.role?.toLowerCase() === 'cliente';
+  const location = useLocation();
+  
+  const searchParams = new URLSearchParams(location.search);
+  const openFormParam = searchParams.get('openForm');
+  const vehicleParam = searchParams.get('vehicle');
   const [reservationsList, setReservationsList] = useState<ReservationData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(openFormParam === 'true');
   const [editingReservation, setEditingReservation] = useState<ReservationData | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | 'all'>('all');
@@ -47,16 +56,25 @@ const Reservations: React.FC = () => {
   const [formData, setFormData] = useState<CreateReservationRequest>({
     startDate: '',
     endDate: '',
-    clientUserCpf: '',
+    clientUserCpf: isClient ? user?.cpf || '' : '',
     employeeUserCpf: '',
-    vehiclePlate: '',
+    vehiclePlate: vehicleParam || '',
     promotionCode: undefined
   });
 
-  // Load reservations on component mount
+  // Load reservations and handle query params
   useEffect(() => {
+    if (openFormParam === 'true') {
+      setShowForm(true);
+    }
+    if (vehicleParam) {
+      setFormData(prev => ({ ...prev, vehiclePlate: vehicleParam }));
+    }
+    if (isClient && user?.cpf) {
+      setFormData(prev => ({ ...prev, clientUserCpf: user.cpf }));
+    }
     loadReservations();
-  }, []);
+  }, [openFormParam, vehicleParam, isClient, user]);
 
   // Reload reservations when filters change (with debounce for search)
   useEffect(() => {
@@ -132,7 +150,7 @@ const Reservations: React.FC = () => {
     
     // Validate required fields
     if (!formData.startDate || !formData.endDate || !formData.clientUserCpf || 
-        !formData.employeeUserCpf || !formData.vehiclePlate) {
+        (!isClient && !formData.employeeUserCpf) || !formData.vehiclePlate) {
       toast({
         title: "Erro",
         description: "Por favor, preencha todos os campos obrigatórios.",
@@ -321,6 +339,25 @@ const Reservations: React.FC = () => {
     }
   };
 
+  const handleCancelReservation = async (id: number) => {
+    if (!window.confirm('Tem certeza que deseja cancelar esta reserva?')) return;
+    try {
+      await ReservationsService.updateReservationStatus(id, 'CANCELLED');
+      toast({
+        title: 'Sucesso',
+        description: 'Reserva cancelada com sucesso!',
+        variant: 'default'
+      });
+      loadReservations();
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.response?.data?.message || 'Erro ao cancelar reserva.',
+        variant: 'destructive'
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -373,27 +410,39 @@ const Reservations: React.FC = () => {
                 </div>
                 <div>
                   <Label htmlFor="clientUserCpf">Cliente</Label>
-                  <FilterableSelect
-                    options={clientOptions}
-                    value={formData.clientUserCpf}
-                    onChange={(value) => handleSelectChange('clientUserCpf', value)}
-                    placeholder="Selecione um cliente..."
-                    loading={loadingClients}
-                    disabled={!!editingReservation}
-                    emptyMessage="Nenhum cliente encontrado."
-                  />
+                  {isClient ? (
+                    <Input
+                      id="clientUserCpf"
+                      name="clientUserCpf"
+                      value={user?.name ? `${user.name} - ${user.cpf}` : user?.cpf || ''}
+                      readOnly
+                      disabled
+                    />
+                  ) : (
+                    <FilterableSelect
+                      options={clientOptions}
+                      value={formData.clientUserCpf}
+                      onChange={(value) => handleSelectChange('clientUserCpf', value)}
+                      placeholder="Selecione um cliente..."
+                      loading={loadingClients}
+                      disabled={!!editingReservation}
+                      emptyMessage="Nenhum cliente encontrado."
+                    />
+                  )}
                 </div>
-                <div>
-                  <Label htmlFor="employeeUserCpf">Funcionário</Label>
-                  <FilterableSelect
-                    options={employeeOptions}
-                    value={formData.employeeUserCpf}
-                    onChange={(value) => handleSelectChange('employeeUserCpf', value)}
-                    placeholder="Selecione um funcionário..."
-                    loading={loadingEmployees}
-                    emptyMessage="Nenhum funcionário encontrado."
-                  />
-                </div>
+                {!isClient && (
+                  <div>
+                    <Label htmlFor="employeeUserCpf">Funcionário</Label>
+                    <FilterableSelect
+                      options={employeeOptions}
+                      value={formData.employeeUserCpf}
+                      onChange={(value) => handleSelectChange('employeeUserCpf', value)}
+                      placeholder="Selecione um funcionário..."
+                      loading={loadingEmployees}
+                      emptyMessage="Nenhum funcionário encontrado."
+                    />
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="vehiclePlate">Veículo</Label>
                   <FilterableSelect
@@ -495,7 +544,7 @@ const Reservations: React.FC = () => {
                   <TableRow>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Veículo</TableHead>
-                    <TableHead>Funcionário</TableHead>
+                    {!isClient && <TableHead>Funcionário</TableHead>}
                     <TableHead>Data Início</TableHead>
                     <TableHead>Data Fim</TableHead>
                     <TableHead>Status</TableHead>
@@ -506,7 +555,7 @@ const Reservations: React.FC = () => {
                 <TableBody>
                   {reservationsList.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-gray-500">
+                      <TableCell colSpan={isClient ? 7 : 8} className="text-center text-gray-500">
                         Nenhuma reserva encontrada.
                       </TableCell>
                     </TableRow>
@@ -525,53 +574,75 @@ const Reservations: React.FC = () => {
                             <div className="text-sm text-gray-500">{reservation.vehiclePlate}</div>
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{reservation.employeeName}</div>
-                            <div className="text-sm text-gray-500">{reservation.employeeUserCpf}</div>
-                          </div>
-                        </TableCell>
+                        {!isClient && (
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{reservation.employeeName}</div>
+                              <div className="text-sm text-gray-500">{reservation.employeeUserCpf}</div>
+                            </div>
+                          </TableCell>
+                        )}
                         <TableCell>{formatDateTime(reservation.startDate)}</TableCell>
                         <TableCell>{formatDateTime(reservation.endDate)}</TableCell>
                         <TableCell>
-                          <Select 
-                            value={reservation.status} 
-                            onValueChange={(value) => handleStatusChange(reservation, value as ReservationStatus)}
-                          >
-                            <SelectTrigger className="w-[130px]">
-                              <Badge className={ReservationsService.getStatusColor(reservation.status)}>
-                                {ReservationsService.getStatusText(reservation.status)}
-                              </Badge>
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="PENDING">Pendente</SelectItem>
-                              <SelectItem value="CONFIRMED">Confirmada</SelectItem>
-                              <SelectItem value="IN_PROGRESS">Em Andamento</SelectItem>
-                              <SelectItem value="COMPLETED">Finalizada</SelectItem>
-                              <SelectItem value="CANCELLED">Cancelada</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          {isClient ? (
+                            <Badge className={ReservationsService.getStatusColor(reservation.status)}>
+                              {ReservationsService.getStatusText(reservation.status)}
+                            </Badge>
+                          ) : (
+                            <Select 
+                              value={reservation.status} 
+                              onValueChange={(value) => handleStatusChange(reservation, value as ReservationStatus)}
+                            >
+                              <SelectTrigger className="w-[130px]">
+                                <Badge className={ReservationsService.getStatusColor(reservation.status)}>
+                                  {ReservationsService.getStatusText(reservation.status)}
+                                </Badge>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="PENDING">Pendente</SelectItem>
+                                <SelectItem value="CONFIRMED">Confirmada</SelectItem>
+                                <SelectItem value="IN_PROGRESS">Em Andamento</SelectItem>
+                                <SelectItem value="COMPLETED">Finalizada</SelectItem>
+                                <SelectItem value="CANCELLED">Cancelada</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
                         </TableCell>
                         <TableCell>
                           {reservation.promotionCode || '-'}
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEdit(reservation)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDelete(reservation.id)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {isClient ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => handleCancelReservation(reservation.id)}
+                                disabled={reservation.status === 'CANCELLED' || reservation.status === 'COMPLETED'}
+                              >
+                                Cancelar
+                              </Button>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEdit(reservation)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleDelete(reservation.id)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
