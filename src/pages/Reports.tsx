@@ -13,9 +13,38 @@ import {
   CreditCard, Filter, ChevronDown, Printer, Wrench, FileOutput
 } from 'lucide-react';
 import { 
-  vehicles, clients, reservations, formatCurrency, formatDate,
-  maintenanceRecords, revenueData
+  clients, formatCurrency, formatDate,
+  revenueData
 } from '@/data/mockData';
+import { useVehicleReport } from '@/hooks/useVehicleReport';
+// Função para formatar datas igual à listagem de reservas
+function formatDateTimeReservation(date: unknown): string {
+  if (Array.isArray(date)) {
+    // [year, month, day, hour, minute, second]
+    const [year, month, day, hour = 0, minute = 0, second = 0] = date;
+    const d = new Date(year, month - 1, day, hour, minute, second);
+    if (isNaN(d.getTime())) return 'Data inválida';
+    return d.toLocaleDateString('pt-BR');
+  }
+  if (typeof date === 'string') {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return 'Data inválida';
+    return d.toLocaleDateString('pt-BR');
+  }
+  return 'Data inválida';
+}
+// Helper para exibir período corretamente
+function getPeriodString(startDate: string, endDate: string): string {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const isValidStart = !isNaN(start.getTime());
+  const isValidEnd = !isNaN(end.getTime());
+  if (!isValidStart && !isValidEnd) return '-';
+  if (!isValidStart) return `- até ${formatDate(endDate)}`;
+  if (!isValidEnd) return `${formatDate(startDate)} até -`;
+  return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+}
+import { useReservationReport } from '@/hooks/useReservationReport';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
   ResponsiveContainer, Cell, PieChart as RechartPieChart, Pie
@@ -274,40 +303,46 @@ const RevenueReport = () => {
 };
 
 const FleetReport = () => {
-  const reportRef = useRef<HTMLDivElement>(null);
-  
-  const statusData = [
-    { name: 'Disponíveis', value: vehicles.filter(v => v.status === 'available').length },
-    { name: 'Alugados', value: vehicles.filter(v => v.status === 'rented').length },
-    { name: 'Manutenção', value: vehicles.filter(v => v.status === 'maintenance').length },
-  ];
-
+  const { data, isLoading, error } = useVehicleReport();
   const COLORS = ['#22c55e', '#ef4444', '#eab308'];
 
-  const totalVehicles = vehicles.length;
-  const availableVehicles = vehicles.filter(v => v.status === 'available').length;
-  const rentedVehicles = vehicles.filter(v => v.status === 'rented').length;
-  const maintenanceVehicles = vehicles.filter(v => v.status === 'maintenance').length;
-  const availabilityRate = (availableVehicles / totalVehicles) * 100;
-  
   const handleExportFleetToPDF = () => {
     exportToPDF('fleet-report', 'Relatório de Frota');
   };
-  
+
   const handleExportMaintenanceTableToPDF = () => {
-    const tableData = maintenanceRecords.map((record) => {
-      const vehicle = vehicles.find(v => v.id === record.vehiclePlate);
-      const vehicleName = vehicle ? `${vehicle.brand} ${vehicle.model}` : 'N/A';
-      const status = record.status === 'completed' ? 'Concluída' :
-                    record.status === 'in_progress' ? 'Em Andamento' : 'Agendada';
-      const type = record.type === 'preventive' ? 'Preventiva' : 'Corretiva';
-      
-      return [vehicleName, type, formatDate(record.scheduledDate), status];
-    });
-    
+    if (!data) return;
+    const tableData = data.latestMaintenances.map((record) => [
+      `${record.vehicleBrand} ${record.vehicleModel}`,
+      record.type === 'PREVENTIVA' ? 'Preventiva' : 'Corretiva',
+      formatDate(record.scheduledDate),
+      record.status === 'CONCLUIDA' ? 'Concluída' :
+        record.status === 'EM_ANDAMENTO' ? 'Em Andamento' : 'Agendada'
+    ]);
     exportTableToPDF(tableData, ['Veículo', 'Tipo', 'Data', 'Status'], 'Relatório de Manutenções');
   };
-  
+
+  if (isLoading) {
+    return <div className="p-6">Carregando relatório de frota...</div>;
+  }
+  if (error) {
+    return <div className="p-6 text-red-500">Erro ao carregar relatório de frota</div>;
+  }
+  if (!data) {
+    return <div className="p-6">Nenhum dado disponível</div>;
+  }
+
+  const statusData = [
+    { name: 'Disponíveis', value: data.availableVehicles },
+    { name: 'Alugados', value: data.inUseVehicles },
+    { name: 'Manutenção', value: data.inMaintenanceVehicles },
+  ];
+  const totalVehicles = data.totalVehicles;
+  const availableVehicles = data.availableVehicles;
+  const rentedVehicles = data.inUseVehicles;
+  const maintenanceVehicles = data.inMaintenanceVehicles;
+  const availabilityRate = totalVehicles > 0 ? (availableVehicles / totalVehicles) * 100 : 0;
+
   return (
     <div className="space-y-6" id="fleet-report">
       <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
@@ -315,18 +350,15 @@ const FleetReport = () => {
           <h2 className="text-xl font-semibold">Relatório de Frota</h2>
           <p className="text-gray-500">Situação atual da frota de veículos</p>
         </div>
-        
         <div className="flex items-center gap-2">
           <Button variant="outline" className="gap-2" onClick={handleExportFleetToPDF}>
             <FileOutput size={16} /> Exportar PDF
           </Button>
-          
           <Button variant="outline" className="gap-2" onClick={handleExportMaintenanceTableToPDF}>
             <Wrench size={16} /> Exportar Manutenções
           </Button>
         </div>
       </div>
-      
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <Card>
           <CardContent className="p-4">
@@ -334,7 +366,6 @@ const FleetReport = () => {
             <div className="text-2xl font-bold">{totalVehicles}</div>
           </CardContent>
         </Card>
-        
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-gray-500">Veículos Disponíveis</div>
@@ -342,14 +373,12 @@ const FleetReport = () => {
             <div className="text-sm">Taxa de disponibilidade: {availabilityRate.toFixed(1)}%</div>
           </CardContent>
         </Card>
-        
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-gray-500">Veículos Alugados</div>
             <div className="text-2xl font-bold text-red-500">{rentedVehicles}</div>
           </CardContent>
         </Card>
-        
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-gray-500">Veículos em Manutenção</div>
@@ -357,7 +386,6 @@ const FleetReport = () => {
           </CardContent>
         </Card>
       </div>
-      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -387,7 +415,6 @@ const FleetReport = () => {
             </div>
           </CardContent>
         </Card>
-        
         <Card>
           <CardHeader>
             <CardTitle>Manutenções Recentes</CardTitle>
@@ -403,30 +430,23 @@ const FleetReport = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {maintenanceRecords.map((record) => {
-                  const vehicle = vehicles.find(v => v.id === record.vehiclePlate);
-                  return (
-                    <TableRow key={record.id}>
-                      <TableCell>
-                        {vehicle ? `${vehicle.brand} ${vehicle.model}` : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        {record.type === 'preventive' ? 'Preventiva' : 'Corretiva'}
-                      </TableCell>
-                      <TableCell>{formatDate(record.scheduledDate)}</TableCell>
-                      <TableCell>
-                        <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
-                          ${record.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            record.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-blue-100 text-blue-800'}
-                        `}>
-                          {record.status === 'completed' ? 'Concluída' :
-                           record.status === 'in_progress' ? 'Em Andamento' : 'Agendada'}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {data.latestMaintenances.map((record) => (
+                  <TableRow key={record.id}>
+                    <TableCell>{`${record.vehicleBrand} ${record.vehicleModel}`}</TableCell>
+                    <TableCell>{record.type === 'PREVENTIVA' ? 'Preventiva' : 'Corretiva'}</TableCell>
+                    <TableCell>{formatDate(record.scheduledDate)}</TableCell>
+                    <TableCell>
+                      <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                        ${record.status === 'CONCLUIDA' ? 'bg-green-100 text-green-800' :
+                          record.status === 'EM_ANDAMENTO' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-blue-100 text-blue-800'}
+                      `}>
+                        {record.status === 'CONCLUIDA' ? 'Concluída' :
+                         record.status === 'EM_ANDAMENTO' ? 'Em Andamento' : 'Agendada'}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </CardContent>
@@ -438,52 +458,48 @@ const FleetReport = () => {
 
 const ReservationReport = () => {
   const [dateFilter, setDateFilter] = useState('all');
-  const reportRef = useRef<HTMLDivElement>(null);
-  
-  const totalReservations = reservations.length;
-  const confirmedReservations = reservations.filter(r => r.status === 'confirmed').length;
-  const completedReservations = reservations.filter(r => r.status === 'completed').length;
-  const cancelledReservations = reservations.filter(r => r.status === 'cancelled').length;
-  const pendingReservations = reservations.filter(r => r.status === 'pending').length;
-  
-  const totalRevenue = reservations.reduce((sum, reservation) => sum + reservation.totalAmount, 0);
-  
-  const statusData = [
-    { name: 'Confirmadas', value: confirmedReservations },
-    { name: 'Concluídas', value: completedReservations },
-    { name: 'Canceladas', value: cancelledReservations },
-    { name: 'Pendentes', value: pendingReservations },
-  ];
-  
+  const { data, isLoading, error } = useReservationReport();
   const COLORS = ['#3B82F6', '#22c55e', '#ef4444', '#eab308'];
-  
+
   const handleExportReservationsToPDF = () => {
     exportToPDF('reservations-report', 'Relatório de Reservas');
   };
-  
+
   const handleExportReservationsTableToPDF = () => {
-    const tableData = reservations.map((reservation) => {
-      const client = clients.find(c => c.id === reservation.clientId);
-      const vehicle = vehicles.find(v => v.id === reservation.vehiclePlate);
-      
-      return [
-        client ? client.name : 'N/A',
-        vehicle ? `${vehicle.brand} ${vehicle.model}` : 'N/A',
-        `${formatDate(reservation.startDate)} - ${formatDate(reservation.endDate)}`,
-        formatCurrency(reservation.totalAmount),
-        reservation.status === 'confirmed' ? 'Confirmada' :
-        reservation.status === 'completed' ? 'Concluída' :
-        reservation.status === 'cancelled' ? 'Cancelada' : 'Pendente'
-      ];
-    });
-    
+    if (!data) return;
+    const tableData = data.latestReservations.map((reservation) => [
+      reservation.clientName,
+      `${reservation.vehicleBrand} ${reservation.vehicleModel}`,
+      `${formatDate(reservation.startDate)} - ${formatDate(reservation.endDate)}`,
+      formatCurrency(reservation.amount),
+      reservation.status === 'CONFIRMED' ? 'Confirmada' :
+      reservation.status === 'COMPLETED' ? 'Concluída' :
+      reservation.status === 'CANCELLED' ? 'Cancelada' : 'Pendente'
+    ]);
     exportTableToPDF(
-      tableData, 
-      ['Cliente', 'Veículo', 'Período', 'Valor', 'Status'], 
+      tableData,
+      ['Cliente', 'Veículo', 'Período', 'Valor', 'Status'],
       'Relatório de Reservas'
     );
   };
-  
+
+  if (isLoading) {
+    return <div className="p-6">Carregando relatório de reservas...</div>;
+  }
+  if (error) {
+    return <div className="p-6 text-red-500">Erro ao carregar relatório de reservas</div>;
+  }
+  if (!data) {
+    return <div className="p-6">Nenhum dado disponível</div>;
+  }
+
+  const statusData = [
+    { name: 'Confirmadas', value: data.confirmedReservations },
+    { name: 'Concluídas', value: data.completedReservations },
+    { name: 'Canceladas', value: data.cancelledReservations },
+    { name: 'Pendentes', value: data.totalReservations - (data.confirmedReservations + data.completedReservations + data.cancelledReservations) },
+  ];
+
   return (
     <div className="space-y-6" id="reservations-report">
       <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
@@ -491,68 +507,49 @@ const ReservationReport = () => {
           <h2 className="text-xl font-semibold">Relatório de Reservas</h2>
           <p className="text-gray-500">Visão geral das reservas realizadas</p>
         </div>
-        
         <div className="flex items-center gap-2">
-          <select
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="px-3 py-2 border rounded-md"
-          >
-            <option value="all">Todas as datas</option>
-            <option value="current_month">Mês atual</option>
-            <option value="last_month">Mês anterior</option>
-            <option value="current_year">Ano atual</option>
-          </select>
-          
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2" onClick={handleExportReservationsToPDF}>
               <FileOutput size={16} /> Exportar PDF
             </Button>
-            
             <Button variant="outline" className="gap-2" onClick={handleExportReservationsTableToPDF}>
               <FileText size={16} /> Exportar Tabela
             </Button>
           </div>
         </div>
       </div>
-      
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-gray-500">Total de Reservas</div>
-            <div className="text-2xl font-bold">{totalReservations}</div>
+            <div className="text-2xl font-bold">{data.totalReservations}</div>
           </CardContent>
         </Card>
-        
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-gray-500">Confirmadas</div>
-            <div className="text-2xl font-bold text-blue-500">{confirmedReservations}</div>
+            <div className="text-2xl font-bold text-blue-500">{data.confirmedReservations}</div>
           </CardContent>
         </Card>
-        
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-gray-500">Concluídas</div>
-            <div className="text-2xl font-bold text-green-500">{completedReservations}</div>
+            <div className="text-2xl font-bold text-green-500">{data.completedReservations}</div>
           </CardContent>
         </Card>
-        
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-gray-500">Canceladas</div>
-            <div className="text-2xl font-bold text-red-500">{cancelledReservations}</div>
+            <div className="text-2xl font-bold text-red-500">{data.cancelledReservations}</div>
           </CardContent>
         </Card>
-        
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-gray-500">Receita Total</div>
-            <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(data.totalRevenue)}</div>
           </CardContent>
         </Card>
       </div>
-      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -582,7 +579,6 @@ const ReservationReport = () => {
             </div>
           </CardContent>
         </Card>
-        
         <Card>
           <CardHeader>
             <CardTitle>Últimas Reservas</CardTitle>
@@ -598,26 +594,14 @@ const ReservationReport = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reservations.slice(0, 5).map((reservation) => {
-                  const client = clients.find(c => c.id === reservation.clientId);
-                  const vehicle = vehicles.find(v => v.id === reservation.vehiclePlate);
-                  return (
-                    <TableRow key={reservation.id}>
-                      <TableCell>
-                        {client ? client.name : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        {vehicle ? `${vehicle.brand} ${vehicle.model}` : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        {formatDate(reservation.startDate)} - {formatDate(reservation.endDate)}
-                      </TableCell>
-                      <TableCell>
-                        {formatCurrency(reservation.totalAmount)}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {data.latestReservations.slice(0, 5).map((reservation) => (
+                  <TableRow key={reservation.id}>
+                    <TableCell>{reservation.clientName}</TableCell>
+                    <TableCell>{`${reservation.vehicleBrand} ${reservation.vehicleModel}`}</TableCell>
+                    <TableCell>{`${formatDateTimeReservation(reservation.startDate)} - ${formatDateTimeReservation(reservation.endDate)}`}</TableCell>
+                    <TableCell>{formatCurrency(reservation.amount)}</TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </CardContent>
@@ -637,11 +621,8 @@ const Reports: React.FC = () => {
         </p>
       </div>
       
-      <Tabs defaultValue="revenue" className="space-y-6">
+      <Tabs defaultValue="fleet" className="space-y-6">
         <TabsList className="w-full flex justify-start mb-6">
-          <TabsTrigger value="revenue" className="gap-2">
-            <BarChart3 size={16} /> Receitas
-          </TabsTrigger>
           <TabsTrigger value="fleet" className="gap-2">
             <Car size={16} /> Frota
           </TabsTrigger>
@@ -650,11 +631,7 @@ const Reports: React.FC = () => {
           </TabsTrigger>
         </TabsList>
         
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <TabsContent value="revenue" className="mt-0">
-            <RevenueReport />
-          </TabsContent>
-          
+        <div className="bg-white p-6 rounded-lg shadow-sm">    
           <TabsContent value="fleet" className="mt-0">
             <FleetReport />
           </TabsContent>
