@@ -53,66 +53,37 @@ export function AppSidebar() {
         }
     };
 
-    // Function to get employee role or "client" for customers
     const getUserRole = (user: User | null): EmployeeRole | 'client' => {
         if (!user) return 'client';
 
-        // Get the role from the user object
-        const userRole = 'role' in user ? (user as any).role : 'client';
-        // Convert API role format to internal format
-        if (typeof userRole === 'string') {
-            const normalizedRole = userRole.toLowerCase();
-
-            // Map API roles to internal roles
-            switch (normalizedRole) {
-                case 'admin':
-                case 'administrador':
-                    return 'admin';
-                case 'attendant':
-                case 'atendente':
-                    return 'attendant';
-                case 'maintenance':
-                case 'manutencao':
-                    return 'maintenance';
-                case 'financial':
-                case 'financeiro':
-                    return 'financial';
-                case 'client':
-                case 'cliente':
-                    return 'client';
-                default:
-                    return 'client';
-            }
-        }
-
-        console.log('Role is not a string, defaulting to client');
+        if (user.role === 'ADMIN') return 'ADMIN';
+        if (user.role === 'MANAGER') return 'MANAGER';
+        if (user.role === 'ATTENDANT') return 'ATTENDANT';
         return 'client';
     };
 
-    // Definição dos itens do menu com controle de permissão
     const allNavItems: NavMenuItem[] = [
         {
             icon: LayoutDashboard,
             label: 'Dashboard',
             to: '/',
-            allowedRoles: ['admin', 'attendant', 'financial', 'maintenance']
+            allowedRoles: ['ADMIN', 'ATTENDANT', 'MANAGER']
         },
         {
             icon: Calendar,
             label: 'Reservas',
             to: '/reservas',
-            allowedRoles: ['admin', 'attendant', 'client', 'financial']
+            allowedRoles: ['ADMIN', 'ATTENDANT', 'client', 'MANAGER']
         },
-        {icon: Car, label: 'Veículos', to: '/veiculos', allowedRoles: ['admin', 'attendant', 'client']},
-        {icon: Clock, label: 'Diárias', to: '/diarias', allowedRoles: ['admin', 'financial']},
-        {icon: Users, label: 'Clientes', to: '/clientes', allowedRoles: ['admin', 'attendant']},
-        {icon: UserCog, label: 'Usuários', to: '/usuarios', allowedRoles: ['admin']},
-        {icon: Wrench, label: 'Manutenção', to: '/manutencao', allowedRoles: ['admin', 'attendant', 'maintenance']},
-        {icon: FileText, label: 'Financeiro', to: '/financeiro', allowedRoles: ['admin', 'financial']},
-        {icon: BarChart2, label: 'Relatórios', to: '/relatorios', allowedRoles: ['admin', 'financial']},
+        {icon: Car, label: 'Veículos', to: '/veiculos', allowedRoles: ['ADMIN', 'ATTENDANT', 'client']},
+        {icon: Clock, label: 'Diárias', to: '/diarias', allowedRoles: ['ADMIN', 'MANAGER']},
+        {icon: Users, label: 'Clientes', to: '/clientes', allowedRoles: ['ADMIN', 'ATTENDANT']},
+        {icon: UserCog, label: 'Usuários', to: '/usuarios', allowedRoles: ['ADMIN']},
+        {icon: Wrench, label: 'Manutenção', to: '/manutencao', allowedRoles: ['ADMIN', 'ATTENDANT']},
+        {icon: FileText, label: 'Financeiro', to: '/financeiro', allowedRoles: ['ADMIN', 'MANAGER']},
+        {icon: BarChart2, label: 'Relatórios', to: '/relatorios', allowedRoles: ['ADMIN', 'MANAGER']},
     ];
 
-    // Filtrar itens de navegação com base no papel do usuário
     const filteredNavItems = allNavItems.filter(item => {
         if (!currentUser) return false;
         const userRole = getUserRole(currentUser);
@@ -121,17 +92,14 @@ export function AppSidebar() {
 
     const userRole = getUserRole(currentUser);
 
-    // Customizar a saudação baseada no papel do usuário
     const getRoleTitle = (role: EmployeeRole | 'client'): string => {
         switch (role) {
-            case 'admin':
+            case 'ADMIN':
                 return 'Administrador';
-            case 'attendant':
+            case 'ATTENDANT':
                 return 'Atendente';
-            case 'maintenance':
-                return 'Manutenção';
-            case 'financial':
-                return 'Financeiro';
+            case 'MANAGER':
+                return 'Gerente';
             case 'client':
                 return 'Cliente';
             default:
