@@ -53,7 +53,7 @@ export type PaginatedResponse<T> = {
 };
 
 // Employee roles according to API documentation
-export type EmployeeRole = 'ADMIN' | 'ATENDENTE' | 'GERENTE';
+export type EmployeeRole = 'ADMIN' | 'MANAGER' | 'ATTENDANT';
 
 export type Promotion = {
   code: number;
