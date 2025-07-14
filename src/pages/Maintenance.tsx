@@ -482,17 +482,6 @@ const Maintenance: React.FC = () => {
                             <Wrench className="mr-2 text-sigac-blue"/>
                             <CardTitle>Registro de Manutenções</CardTitle>
                         </div>
-                        <div className="flex gap-2 w-full md:w-64">
-                            <div className="relative w-full">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500"/>
-                                <Input
-                                    placeholder="Buscar manutenções..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="pl-9"
-                                />
-                            </div>
-                        </div>
                     </div>
 
                     <Tabs defaultValue="all" className="mt-4" onValueChange={setActiveTab}>

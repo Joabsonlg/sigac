@@ -5,6 +5,7 @@ export interface DashboardSummaryDTO {
     totalVeiculos: number;
     totalClientes: number;
     totalReservas: number;
+    receitaBruta: number;
     reservasRecentes: Reservation[];
     veiculosRecentes: Vehicle[];
     manutencoesRecentes: Maintenance[];

@@ -224,8 +224,12 @@ const Users: React.FC = () => {
       // Legacy roles for backward compatibility
       case 'admin':
         return <Badge className="bg-purple-500">Administrador</Badge>;
+      case 'ATTENDANT':
+        return <Badge className="bg-blue-500">Atendente</Badge>;
       case 'attendant':
         return <Badge className="bg-blue-500">Atendente</Badge>;
+      case 'MANAGER':
+        return <Badge className="bg-green-500">Gerente</Badge>;
       case 'manager':
         return <Badge className="bg-green-500">Gerente</Badge>;
       default:
@@ -379,17 +383,6 @@ const Users: React.FC = () => {
             <div className="flex items-center">
               <UsersIcon className="mr-2 text-sigac-blue" />
               <CardTitle>Funcionários do Sistema</CardTitle>
-            </div>
-            <div className="flex gap-2 w-full md:w-64">
-              <div className="relative w-full">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                <Input
-                  placeholder="Buscar funcionários..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
             </div>
           </div>
         </CardHeader>

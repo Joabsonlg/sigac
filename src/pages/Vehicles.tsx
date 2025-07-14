@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import {useAuth} from '@/contexts/AuthContext';
 import {DailyRate, Vehicle} from '@/types';
 import {
     Table, TableHeader, TableRow, TableHead,
@@ -10,7 +10,7 @@ import {Input} from '@/components/ui/input';
 import {Card, CardHeader, CardTitle, CardContent} from '@/components/ui/card';
 import {
     Car, Plus, Edit, Trash2, Check, X, Search,
-    Clock, CheckCircle, ArrowRight
+    Clock, CheckCircle, ArrowRight, Eye
 } from 'lucide-react';
 import {Badge} from '@/components/ui/badge';
 import {CreateVehicleRequest, VehiclesService, VehicleStatus} from '@/services/vehiclesService';
@@ -18,7 +18,7 @@ import {toast} from "sonner";
 import {DailyRatesService} from "@/services/dailyRatesService.ts";
 import DailyRatesChart from "@/pages/DailyRatesChart.tsx";
 
-import { useNavigate } from 'react-router-dom';
+import {useNavigate} from 'react-router-dom';
 
 const Vehicles: React.FC = () => {
     const [vehiclesList, setVehiclesList] = useState<Vehicle[]>([]);
@@ -29,7 +29,14 @@ const Vehicles: React.FC = () => {
     const [dailyRatesModalOpen, setDailyRatesModalOpen] = useState(false);
     const [dailyRates, setDailyRates] = useState<DailyRate[]>([]);
     const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-    const { user } = useAuth();
+    const [viewModalOpen, setViewModalOpen] = useState(false);
+    const [vehicleToView, setVehicleToView] = useState<Vehicle | null>(null);
+    const openViewModal = (vehicle: Vehicle) => {
+        setVehicleToView(vehicle);
+        setViewModalOpen(true);
+    };
+
+    const {user} = useAuth();
     const role = user?.role?.toLowerCase();
     const isClient = role === 'client' || role === 'cliente';
     const isAttendant = role === 'attendant' || role === 'atendente';
@@ -227,12 +234,12 @@ const Vehicles: React.FC = () => {
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold">Gerenciamento de Veículos</h1>
                 {!(isClient || isAttendant) && (
-                  <Button onClick={() => {
-                      resetForm();
-                      setShowForm(!showForm);
-                  }}>
-                      <Plus className="mr-2 h-4 w-4"/> Novo Veículo
-                  </Button>
+                    <Button onClick={() => {
+                        resetForm();
+                        setShowForm(!showForm);
+                    }}>
+                        <Plus className="mr-2 h-4 w-4"/> Novo Veículo
+                    </Button>
                 )}
             </div>
 
@@ -368,17 +375,6 @@ const Vehicles: React.FC = () => {
                             <Car className="mr-2 text-sigac-blue"/>
                             <CardTitle>Frota de Veículos</CardTitle>
                         </div>
-                        <div className="flex gap-2 w-full md:w-64">
-                            <div className="relative w-full">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500"/>
-                                <Input
-                                    placeholder="Buscar veículos..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="pl-9"
-                                />
-                            </div>
-                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -415,38 +411,94 @@ const Vehicles: React.FC = () => {
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
+                                                        onClick={() => openViewModal(vehicle)}
+                                                        title="Visualizar detalhes"
+                                                    >
+                                                        <Eye className="h-4 w-4"/>
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
                                                         onClick={() => openDailyRateHistory(vehicle)}
+                                                        title="Histórico de diárias"
                                                     >
                                                         <Clock className="h-4 w-4"/>
                                                     </Button>
                                                     {(isClient || isAttendant) && (
-                                                      <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="text-blue-500 border-blue-200 hover:bg-blue-50"
-                                                        onClick={() => handleReserveVehicle(vehicle)}
-                                                      >
-                                                        <ArrowRight className="h-4 w-4" /> Reservar
-                                                      </Button>
-                                                    )}
-                                                    {!(isClient || isAttendant) && (
-                                                      <>
-                                                        <Button variant="outline" size="sm"
-                                                                onClick={() => handleEdit(vehicle)}>
-                                                            <Edit className="h-4 w-4"/>
-                                                        </Button>
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
-                                                            className="text-red-500 border-red-200 hover:bg-red-50"
-                                                            onClick={() => confirmDelete(vehicle)}
+                                                            className="text-blue-500 border-blue-200 hover:bg-blue-50"
+                                                            onClick={() => handleReserveVehicle(vehicle)}
                                                         >
-                                                            <Trash2 className="h-4 w-4"/>
+                                                            <ArrowRight className="h-4 w-4"/> Reservar
                                                         </Button>
-                                                      </>
+                                                    )}
+                                                    {!(isClient || isAttendant) && (
+                                                        <>
+                                                            <Button variant="outline" size="sm"
+                                                                    onClick={() => handleEdit(vehicle)}>
+                                                                <Edit className="h-4 w-4"/>
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="text-red-500 border-red-200 hover:bg-red-50"
+                                                                onClick={() => confirmDelete(vehicle)}
+                                                            >
+                                                                <Trash2 className="h-4 w-4"/>
+                                                            </Button>
+                                                        </>
                                                     )}
                                                 </div>
                                             </TableCell>
+                                            {/* Modal de visualização de veículo */}
+                                            {viewModalOpen && vehicleToView && (
+                                                <div
+                                                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                                                    onClick={() => setViewModalOpen(false)}
+                                                >
+                                                    <div
+                                                        className="bg-white rounded-lg p-6 w-[90%] max-w-md shadow-lg max-h-[90vh] overflow-y-auto"
+                                                        onClick={e => e.stopPropagation()}
+                                                    >
+                                                        <h2 className="text-xl font-semibold mb-4 text-center">Detalhes
+                                                            do Veículo</h2>
+                                                        {vehicleToView.imageUrl ? (
+                                                            <img
+                                                                src={vehicleToView.imageUrl}
+                                                                alt={`Imagem do veículo ${vehicleToView.plate}`}
+                                                                className="w-full h-48 object-contain mb-4 rounded border"
+                                                            />
+                                                        ) : (
+                                                            <div
+                                                                className="w-full h-48 flex items-center justify-center bg-gray-100 mb-4 rounded border text-gray-400">
+                                                                Sem imagem disponível
+                                                            </div>
+                                                        )}
+                                                        <ul className="space-y-2">
+                                                            <li><strong>Marca:</strong> {vehicleToView.brand}</li>
+                                                            <li><strong>Modelo:</strong> {vehicleToView.model}</li>
+                                                            <li><strong>Ano:</strong> {vehicleToView.year}</li>
+                                                            <li><strong>Placa:</strong> {vehicleToView.plate}</li>
+                                                            <li>
+                                                                <strong>Status:</strong> {getStatusBadge(vehicleToView.status)}
+                                                            </li>
+                                                            <li>
+                                                                <strong>Diária:</strong> {new Intl.NumberFormat('pt-BR', {
+                                                                style: 'currency',
+                                                                currency: 'BRL'
+                                                            }).format(vehicleToView.dailyRate ?? 0)}</li>
+                                                        </ul>
+                                                        <div className="mt-6 text-right">
+                                                            <Button variant="outline"
+                                                                    onClick={() => setViewModalOpen(false)}>
+                                                                Fechar
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </TableRow>
                                     ))
                                 ) : (
@@ -496,7 +548,7 @@ const Vehicles: React.FC = () => {
                             Histórico de Diárias - {selectedVehicle.plate}
                         </h2>
 
-                        <DailyRatesChart dailyRates={dailyRates} />
+                        <DailyRatesChart dailyRates={dailyRates}/>
 
                         {dailyRates.length > 0 ? (
                             <ul className="space-y-2">

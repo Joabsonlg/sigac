@@ -594,36 +594,6 @@ const Reservations: React.FC = () => {
                             <CalendarCheck className="mr-2 text-sigac-blue"/>
                             <CardTitle>Lista de Reservas</CardTitle>
                         </div>
-                        <div className="flex gap-2 w-full md:w-auto">
-                            <div className="relative flex-1 md:w-64">
-                                {searching ? (
-                                    <Loader2 className="absolute left-2.5 top-2.5 h-4 w-4 animate-spin text-gray-500"/>
-                                ) : (
-                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500"/>
-                                )}
-                                <Input
-                                    placeholder="Buscar reservas..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="pl-9"
-                                    disabled={loading}
-                                />
-                            </div>
-                            <Select value={statusFilter}
-                                    onValueChange={(value) => setStatusFilter(value as ReservationStatus | 'all')}>
-                                <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder="Filtrar por status"/>
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todos os Status</SelectItem>
-                                    <SelectItem value="PENDING">Pendente</SelectItem>
-                                    <SelectItem value="CONFIRMED">Confirmada</SelectItem>
-                                    <SelectItem value="IN_PROGRESS">Em Andamento</SelectItem>
-                                    <SelectItem value="COMPLETED">Finalizada</SelectItem>
-                                    <SelectItem value="CANCELLED">Cancelada</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>

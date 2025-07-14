@@ -545,7 +545,7 @@ const ReservationReport = () => {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="text-sm text-gray-500">Receita Total</div>
+            <div className="text-sm text-gray-500">Receita Bruta</div>
             <div className="text-2xl font-bold">{formatCurrency(data.totalRevenue)}</div>
           </CardContent>
         </Card>

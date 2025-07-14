@@ -69,7 +69,7 @@ export class AuthService {
    */
   static async register(userData: RegisterData): Promise<void> {
     try {
-      await api.post('/auth/register', userData);
+      await api.post('/api/clients/register', userData);
       // Registration doesn't automatically log in, user needs to login after
     } catch (error: any) {
       console.error('Registration error:', error);

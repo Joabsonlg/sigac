@@ -324,18 +324,6 @@ const Clients: React.FC = () => {
               <Users className="mr-2 text-sigac-blue" />
               <CardTitle>Lista de Clientes</CardTitle>
             </div>
-            <div className="flex gap-2 w-full md:w-64">
-              <div className="relative w-full">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                <Input
-                  placeholder="Buscar clientes..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                  disabled={loading}
-                />
-              </div>
-            </div>
           </div>
         </CardHeader>
         <CardContent>

@@ -29,7 +29,7 @@ const Dashboard: React.FC = () => {
 
   return (
       <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
           <StatCard
               title="Total de Veículos"
               value={dashboardData?.totalVeiculos.toString() || '0'}
@@ -50,6 +50,17 @@ const Dashboard: React.FC = () => {
               value={dashboardData?.totalClientes.toString() || '0'}
               isPositive={true}
               icon={Users}
+              color="yellow"
+          />
+          <StatCard
+              title="Receita Bruta"
+              value={
+                typeof dashboardData?.receitaBruta === 'number'
+                  ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(dashboardData.receitaBruta)
+                  : 'R$ 0,00'
+              }
+              isPositive={true}
+              icon={DollarSign}
               color="yellow"
           />
         </div>
