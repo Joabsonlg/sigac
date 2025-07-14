@@ -71,9 +71,14 @@ export class MaintenanceService {
      */
     static async updateMaintenanceStatus(
         id: string,
-        status: 'AGENDADA' | 'EM_ANDAMENTO' | 'CONCLUIDA' | 'CANCELADA'
+        status: 'AGENDADA' | 'EM_ANDAMENTO' | 'CONCLUIDA' | 'CANCELADA',
+        cost?: number
     ): Promise<MaintenanceRecord> {
-        const response = await api.patch(`/api/maintenances/${id}/status`, { status });
+        const body = { status };
+        if (cost !== undefined) {
+            Object.assign(body, { cost });
+        }
+        const response = await api.patch(`/api/maintenances/${id}/status`, body);
         return response.data as MaintenanceRecord;
     }
 }

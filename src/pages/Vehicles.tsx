@@ -191,7 +191,10 @@ const Vehicles: React.FC = () => {
             toast.success(`Veículo ${vehicleToDelete.plate} deletado com sucesso!`);
         } catch (err) {
             console.error('Erro ao deletar veículo:', err);
-            toast.error('Erro ao deletar veículo.');
+
+            // Tenta extrair a mensagem do backend
+            const errorMessage = err?.response?.data?.message || 'Erro ao deletar veículo.';
+            toast.error(errorMessage);
         } finally {
             setVehicleToDelete(null);
         }

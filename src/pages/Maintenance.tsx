@@ -57,6 +57,7 @@ const Maintenance: React.FC = () => {
     const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceRecord | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [loading, setLoading] = useState<boolean>(true);
+    const [maintenanceCost, setMaintenanceCost] = useState<number | ''>('');
 
     const {
         employeeOptions,
@@ -147,7 +148,7 @@ const Maintenance: React.FC = () => {
                 toast.success('Manutenção cadastrada com sucesso!');
             }
 
-            fetchMaintenances();
+            await fetchMaintenances();
             setShowForm(false);
             resetForm();
         } catch (error: unknown) {
@@ -220,7 +221,7 @@ const Maintenance: React.FC = () => {
     };
 
     const filteredMaintenanceList = maintenanceList.filter((maintenance) => {
-        const plate = maintenance.vehiclePlate.toLowerCase();
+        const plate = maintenance?.vehiclePlate?.toLowerCase?.() || '';
         const searchLower = searchTerm.toLowerCase();
 
         const matchesSearch = plate.includes(searchLower);
@@ -309,10 +310,11 @@ const Maintenance: React.FC = () => {
 
     const handleUpdateStatus = async (
         id: string,
-        newStatus: 'AGENDADA' | 'EM_ANDAMENTO' | 'CONCLUIDA' | 'CANCELADA'
+        newStatus: 'AGENDADA' | 'EM_ANDAMENTO' | 'CONCLUIDA' | 'CANCELADA',
+        cost?: number
     ) => {
         try {
-            const updated = await MaintenanceService.updateMaintenanceStatus(id, newStatus);
+            const updated = await MaintenanceService.updateMaintenanceStatus(id, newStatus, cost);
             await fetchMaintenances();
 
             const statusMessageMap = {
@@ -595,89 +597,113 @@ const Maintenance: React.FC = () => {
                         </DialogHeader>
 
                         <div className="space-y-4 py-4">
-                            {(() => {
-                                const vehicle = getVehicleById(selectedMaintenance.vehiclePlate);
-                                return (
-                                    <>
-                                        <div className="flex items-center space-x-2">
-                                            <Car className="h-5 w-5 text-sigac-blue"/>
-                                            <div>
-                                                <div className="font-medium">Veículo</div>
-                                                <div>{selectedMaintenance.vehiclePlate ? `${selectedMaintenance.vehiclePlate}` : 'Veículo não encontrado'}</div>
-                                            </div>
+                            {/* Seu conteúdo detalhado aqui... */}
+                            <div className="flex items-center space-x-2">
+                                <Car className="h-5 w-5 text-sigac-blue"/>
+                                <div>
+                                    <div className="font-medium">Veículo</div>
+                                    <div>{selectedMaintenance.vehiclePlate ? `${selectedMaintenance.vehiclePlate}` : 'Veículo não encontrado'}</div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <div className="font-medium">Tipo</div>
+                                    <div>
+                                        {selectedMaintenance?.type?.toUpperCase().trim() === 'PREVENTIVA'
+                                            ? 'Preventiva'
+                                            : selectedMaintenance?.type?.toUpperCase().trim() === 'CORRETIVA'
+                                                ? 'Corretiva'
+                                                : 'Tipo desconhecido'}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div className="font-medium">Status</div>
+                                    <div>{getStatusBadge(selectedMaintenance.status)}</div>
+                                </div>
+
+                                <div>
+                                    <div className="font-medium">Data Agendada</div>
+                                    <div className="flex items-center">
+                                        <Calendar className="mr-1 h-3 w-3 text-gray-500"/>
+                                        {formatDate(selectedMaintenance.scheduledDate)}
+                                    </div>
+                                </div>
+
+                                {selectedMaintenance.completedDate && (
+                                    <div>
+                                        <div className="font-medium">Data Concluída</div>
+                                        <div className="flex items-center">
+                                            <Calendar className="mr-1 h-3 w-3 text-gray-500"/>
+                                            {formatDate(selectedMaintenance.completedDate)}
                                         </div>
+                                    </div>
+                                )}
 
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <div className="font-medium">Tipo</div>
-                                                <div>
-                                                    {selectedMaintenance?.type?.toUpperCase().trim() === 'PREVENTIVA'
-                                                        ? 'Preventiva'
-                                                        : selectedMaintenance?.type?.toUpperCase().trim() === 'CORRETIVA'
-                                                            ? 'Corretiva'
-                                                            : 'Tipo desconhecido'}
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div className="font-medium">Status</div>
-                                                <div>{getStatusBadge(selectedMaintenance.status)}</div>
-                                            </div>
-
-                                            <div>
-                                                <div className="font-medium">Data Agendada</div>
-                                                <div className="flex items-center">
-                                                    <Calendar className="mr-1 h-3 w-3 text-gray-500"/>
-                                                    {formatDate(selectedMaintenance.scheduledDate)}
-                                                </div>
-                                            </div>
-
-                                            {selectedMaintenance.completedDate && (
-                                                <div>
-                                                    <div className="font-medium">Data Concluída</div>
-                                                    <div className="flex items-center">
-                                                        <Calendar className="mr-1 h-3 w-3 text-gray-500"/>
-                                                        {formatDate(selectedMaintenance.completedDate)}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {selectedMaintenance.status === 'completed' && selectedMaintenance.cost && (
-                                                <div>
-                                                    <div className="font-medium">Custo</div>
-                                                    <div className="flex items-center">
-                                                        <CircleDollarSign className="mr-1 h-3 w-3 text-gray-500"/>
-                                                        {formatCurrency(selectedMaintenance.cost)}
-                                                    </div>
-                                                </div>
-                                            )}
+                                {selectedMaintenance.status === 'completed' && selectedMaintenance.cost && (
+                                    <div>
+                                        <div className="font-medium">Custo</div>
+                                        <div className="flex items-center">
+                                            <CircleDollarSign className="mr-1 h-3 w-3 text-gray-500"/>
+                                            {formatCurrency(selectedMaintenance.cost)}
                                         </div>
+                                    </div>
+                                )}
+                            </div>
 
-                                        <div>
-                                            <div className="font-medium">Descrição</div>
-                                            <div className="text-gray-700 mt-1">
-                                                {selectedMaintenance.description}
-                                            </div>
-                                        </div>
-                                    </>
-                                );
-                            })()}
+                            {/* ... mais dados */}
+
+                            {(selectedMaintenance.status === 'scheduled' || selectedMaintenance.status === 'in_progress') && (
+                                <div className="mb-4">
+                                    <label htmlFor="maintenanceCost" className="block font-medium mb-1">
+                                        Custo (R$)
+                                    </label>
+                                    <input
+                                        id="maintenanceCost"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={maintenanceCost}
+                                        onChange={(e) =>
+                                            setMaintenanceCost(e.target.value === '' ? '' : Number(e.target.value))
+                                        }
+                                        className="w-full p-2 border rounded-md"
+                                        placeholder="Digite o custo da manutenção"
+                                    />
+                                </div>
+                            )}
                         </div>
+
                         <DialogFooter>
                             {selectedMaintenance.status !== 'completed' && (
                                 <div className="flex items-center space-x-2">
                                     {selectedMaintenance.status === 'scheduled' && (
                                         <Button
-                                            onClick={() => handleUpdateStatus(selectedMaintenance.id, 'EM_ANDAMENTO')}
+                                            onClick={() =>
+                                                handleUpdateStatus(
+                                                    selectedMaintenance.id,
+                                                    'EM_ANDAMENTO',
+                                                    maintenanceCost === '' ? 0 : maintenanceCost
+                                                )
+                                            }
                                             className="bg-yellow-500 hover:bg-yellow-600"
+                                            disabled={maintenanceCost === '' || maintenanceCost < 0}
                                         >
                                             Iniciar Manutenção
                                         </Button>
                                     )}
 
                                     {selectedMaintenance.status === 'in_progress' && (
-                                        <Button onClick={() => handleUpdateStatus(selectedMaintenance.id, 'CONCLUIDA')}
-                                                className="bg-green-500 hover:bg-green-600"
+                                        <Button
+                                            onClick={() =>
+                                                handleUpdateStatus(
+                                                    selectedMaintenance.id,
+                                                    'CONCLUIDA',
+                                                    maintenanceCost === '' ? 0 : maintenanceCost
+                                                )
+                                            }
+                                            className="bg-green-500 hover:bg-green-600"
+                                            disabled={maintenanceCost === '' || maintenanceCost < 0}
                                         >
                                             Concluir Manutenção
                                         </Button>

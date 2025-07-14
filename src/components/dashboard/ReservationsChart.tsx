@@ -31,17 +31,8 @@ const ReservationsChart: React.FC = () => {
         const dateArray = reservation.reservationDate;
         if (!Array.isArray(dateArray)) return;
 
-        const jsDate = new Date(
-            dateArray[0],                   // year
-            dateArray[1] - 1,               // month (0-based in JS)
-            dateArray[2],                   // day
-            dateArray[3] || 0,              // hour
-            dateArray[4] || 0,              // minute
-            dateArray[5] || 0,              // second
-            Math.floor((dateArray[6] || 0) / 1_000_000) // nanos to millis
-        );
+        const dateStr = `${dateArray[0]}-${String(dateArray[1]).padStart(2, '0')}-${String(dateArray[2]).padStart(2, '0')}`;
 
-        const dateStr = format(jsDate, 'yyyy-MM-dd');
         countPerDay[dateStr] = (countPerDay[dateStr] || 0) + 1;
       });
 
